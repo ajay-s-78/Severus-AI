@@ -5,6 +5,7 @@ from typing import Optional
 from app.services.ai_service import ai_service
 from app.services.csv_service import csv_service
 from app.services.computer_control_service import computer_control_service
+from app.services.memory_service import memory_service
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -159,6 +160,25 @@ async def upload_csv_endpoint(
         "analysis": analysis,
         "summary_msg": summary_msg
     }
+
+
+@router.get("/memory")
+async def get_memory_endpoint():
+    """
+    Retrieves stored user memories across sessions.
+    """
+    memories = memory_service.get_all_memories()
+    return {"status": "success", "memories": memories}
+
+
+@router.delete("/memory")
+async def clear_memory_endpoint():
+    """
+    Clears all stored user conversation memories.
+    """
+    count = memory_service.clear_all_memories()
+    return {"status": "cleared", "deleted_count": count}
+
 
 
 

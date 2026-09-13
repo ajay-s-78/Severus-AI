@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.database.database import get_connection, create_tables
 from app.prompts.system_prompt import SEVERUS_SYSTEM_PROMPT
 from app.services.search_service import search_service
-
+from app.services.memory_service import memory_service
 
 
 logger = logging.getLogger("severus.ai_service")
@@ -294,12 +294,30 @@ class AIService:
                     logger.warning(f"Web search failed: {search_err}. Proceeding with standard response.")
 
             # -------------------------------------------------
+            # ADVANCED MEMORY RETRIEVAL & FACT EXTRACTION
+            # -------------------------------------------------
+            try:
+                memory_service.extract_and_save_facts(message)
+            except Exception as mem_ex_err:
+                logger.warning(f"Memory fact extraction error: {mem_ex_err}")
+
+            system_prompt_content = SEVERUS_SYSTEM_PROMPT
+            try:
+                relevant_memories = memory_service.get_relevant_memories(message)
+                if relevant_memories:
+                    mem_lines = [f"- {m['key']}: {m['value']}" for m in relevant_memories[:10]]
+                    memory_block = "\n\n[User Memory Context Across Sessions]:\n" + "\n".join(mem_lines)
+                    system_prompt_content += memory_block
+            except Exception as mem_ret_err:
+                logger.warning(f"Memory retrieval error: {mem_ret_err}")
+
+            # -------------------------------------------------
             # BUILD MESSAGES
             # -------------------------------------------------
 
             messages: List[BaseMessage] = [
                 SystemMessage(
-                    content=SEVERUS_SYSTEM_PROMPT
+                    content=system_prompt_content
                 )
             ]
 

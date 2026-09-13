@@ -239,3 +239,86 @@ def test_execute_action_endpoint_success(mock_web_open):
     mock_web_open.assert_called_once_with("https://python.org")
 
 
+def test_memory_service_save_and_retrieve():
+    """Verify MemoryService saves and retrieves user memories across sessions."""
+    from app.services.memory_service import memory_service
+
+    memory_service.clear_all_memories()
+    assert memory_service.save_memory(key="user_framework", value="FastAPI", category="preference") is True
+
+    memories = memory_service.get_relevant_memories("framework")
+    assert len(memories) >= 1
+    keys = [m["key"] for m in memories]
+    assert "user_framework" in keys
+
+
+def test_memory_service_secret_filtering():
+    """Verify MemoryService strictly filters out API keys, passwords, and tokens."""
+    from app.services.memory_service import memory_service
+
+    # Check secret detection regex
+    assert memory_service.contains_secret("AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5") is True
+    assert memory_service.contains_secret("sk-proj-1234567890abcdef1234567890") is True
+    assert memory_service.contains_secret("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") is True
+    assert memory_service.contains_secret("api_key=secret_value_123") is True
+
+    # Check saving secrets is rejected
+    saved = memory_service.save_memory(key="api_key", value="AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5")
+    assert saved is False
+
+    memories = memory_service.get_all_memories()
+    for m in memories:
+        assert "AIzaSy" not in m["value"]
+        assert "sk-" not in m["value"]
+
+
+def test_memory_service_fact_extraction():
+    """Verify automatic fact extraction from user prompt statements."""
+    from app.services.memory_service import memory_service
+
+    memory_service.clear_all_memories()
+
+    saved_keys = memory_service.extract_and_save_facts("My name is SeverusTester and I prefer dark mode theme.")
+    assert "user_name" in saved_keys
+    assert "user_preference" in saved_keys
+
+    memories = memory_service.get_all_memories()
+    memory_dict = {m["key"]: m["value"] for m in memories}
+    assert memory_dict.get("user_name") == "SeverusTester"
+    assert "dark mode" in memory_dict.get("user_preference", "")
+
+
+def test_memory_service_clear():
+    """Verify clearing memories removes all entries from user_memories table."""
+    from app.services.memory_service import memory_service
+
+    memory_service.save_memory("test_key", "test_val")
+    assert len(memory_service.get_all_memories()) > 0
+
+    count = memory_service.clear_all_memories()
+    assert count >= 1
+    assert len(memory_service.get_all_memories()) == 0
+
+
+def test_memory_api_endpoints():
+    """Verify GET /api/memory and DELETE /api/memory endpoints."""
+    from app.services.memory_service import memory_service
+    memory_service.clear_all_memories()
+    memory_service.save_memory("favorite_lang", "Python")
+
+    # GET /api/memory
+    get_res = client.get("/api/memory")
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert data["status"] == "success"
+    assert any(m["key"] == "favorite_lang" for m in data["memories"])
+
+    # DELETE /api/memory
+    del_res = client.delete("/api/memory")
+    assert del_res.status_code == 200
+    del_data = del_res.json()
+    assert del_data["status"] == "cleared"
+    assert del_data["deleted_count"] >= 1
+
+
+

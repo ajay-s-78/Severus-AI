@@ -74,6 +74,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Clear Memory Event Listener
+  const clearMemoryBtn = document.getElementById('clearMemoryBtn');
+  if (clearMemoryBtn) {
+    clearMemoryBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to clear all stored Severus conversation memory across sessions?')) {
+        try {
+          const res = await fetch('/api/memory', { method: 'DELETE' });
+          const data = await res.json();
+          if (res.ok && data.status === 'cleared') {
+            alert(`Successfully cleared ${data.deleted_count} stored memory items.`);
+          } else {
+            alert('Failed to clear conversation memory.');
+          }
+        } catch (err) {
+          alert('Error connecting to server to clear memory.');
+        }
+      }
+    });
+  }
+
   // Prompt Cards Click Handling on Welcome Screen
   const promptGrid = document.querySelector('.prompt-grid');
   if (promptGrid) {
