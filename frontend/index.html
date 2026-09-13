@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEVERUS — Data Science AI Assistant</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Marked Markdown Parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Highlight.js for Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- Application CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Collapsible Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">
+            <i class="fa-solid fa-brain"></i>
+          </div>
+          <div class="brand-info">
+            <h1>SEVERUS</h1>
+            <span>Data Science AI Assistant</span>
+          </div>
+        </div>
+        <button class="btn-toggle-sidebar" id="collapseSidebarBtn" title="Collapse Sidebar">
+          <i class="fa-solid fa-angles-left"></i>
+        </button>
+      </div>
+
+      <!-- New Chat Button -->
+      <button class="btn-new-chat" id="newChatBtn">
+        <i class="fa-solid fa-plus"></i> New Chat
+      </button>
+
+      <!-- Recent Chats Section -->
+      <div class="recent-chats-section">
+        <div class="section-title">
+          <span><i class="fa-regular fa-clock"></i> Recent Chats</span>
+          <button class="btn-clear-all" id="clearAllChatsBtn" title="Clear All History">
+            <i class="fa-regular fa-trash-can"></i>
+          </button>
+        </div>
+        <div class="recent-chats-list" id="recentChatsList">
+          <!-- Dynamic list of previous conversations rendered via script.js -->
+        </div>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="system-status">
+          <span class="status-dot"></span> Severus AI Engine Ready
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <main class="main-content">
+      <!-- Top Navigation Bar -->
+      <header class="top-bar">
+        <div class="bar-left">
+          <button class="btn-bar-toggle" id="expandSidebarBtn" title="Expand Sidebar">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <span class="bar-title" id="barChatTitle">SEVERUS</span>
+        </div>
+        <div class="bar-right">
+          <button class="btn-header-action" id="headerNewChatBtn" title="Start New Conversation">
+            <i class="fa-solid fa-plus"></i> <span class="btn-text">New Chat</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Chat Viewport -->
+      <div class="chat-viewport">
+        <!-- Welcome Screen (Centered - shown when chat is empty) -->
+        <div class="welcome-container" id="welcomeScreen">
+          <div class="welcome-hero">
+            <div class="hero-avatar">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <h1 class="welcome-title">SEVERUS</h1>
+            <p class="welcome-subtitle">Your Data Science AI Assistant</p>
+            <h2 class="welcome-heading">How can I help you today?</h2>
+          </div>
+
+          <!-- Quick-Start Cards Grid (8 Cards) -->
+          <div class="prompt-grid">
+            <button class="prompt-card" data-prompt="Explain Machine Learning algorithms, supervised vs unsupervised learning, and key workflow steps.">
+              <div class="card-icon"><i class="fa-solid fa-robot"></i></div>
+              <div class="card-content">
+                <h3>Explain Machine Learning</h3>
+                <p>Overview of ML concepts & algorithms</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="Write Pandas code to clean data, handle missing values, and group sales by product category.">
+              <div class="card-icon"><i class="fa-solid fa-table"></i></div>
+              <div class="card-content">
+                <h3>Write Pandas Code</h3>
+                <p>Data wrangling & category aggregations</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="Write an optimized SQL query to find the top 5 customers by total order amount using window functions.">
+              <div class="card-icon"><i class="fa-solid fa-database"></i></div>
+              <div class="card-content">
+                <h3>Generate SQL Query</h3>
+                <p>Analytical queries & window functions</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="Correct this code:&#10;import pandas as pd&#10;df = pd.read_csv('data.csv')&#10;print(df.head)">
+              <div class="card-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+              <div class="card-content">
+                <h3>Correct My Code</h3>
+                <p>Fix syntax, logical, and function errors</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="Here is my code and error message:&#10;df['Age']&#10;KeyError: 'Age'&#10;How do I debug and fix this?">
+              <div class="card-icon"><i class="fa-solid fa-bug"></i></div>
+              <div class="card-content">
+                <h3>Debug Python Error</h3>
+                <p>Trace errors and provide working fixes</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="What is Exploratory Data Analysis (EDA) and what are the essential visualization steps?">
+              <div class="card-icon"><i class="fa-solid fa-chart-pie"></i></div>
+              <div class="card-content">
+                <h3>Explain EDA</h3>
+                <p>Data exploration & distribution checks</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="Explain Deep Learning, Neural Networks, activation functions, and backpropagation.">
+              <div class="card-icon"><i class="fa-solid fa-network-wired"></i></div>
+              <div class="card-content">
+                <h3>Explain Deep Learning</h3>
+                <p>Neural networks & model training</p>
+              </div>
+            </button>
+
+            <button class="prompt-card" data-prompt="What is overfitting vs underfitting, and how do I prevent overfitting in Machine Learning models?">
+              <div class="card-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+              <div class="card-content">
+                <h3>Help With Data Science</h3>
+                <p>Interview prep & model evaluation</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Conversation Message Stream -->
+        <div class="messages-wrapper hidden" id="messagesWrapper">
+          <div class="messages-stream" id="messagesContainer">
+            <!-- Messages rendered dynamically via script.js -->
+          </div>
+
+          <!-- Typing Indicator Bubble -->
+          <div class="typing-container hidden" id="typingIndicator">
+            <div class="msg-avatar ai-avatar">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <div class="typing-bubble">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fixed Bottom Composer Floating Bar -->
+      <div class="composer-container">
+        <div class="attachment-badge hidden" id="csvAttachmentBadge">
+          <i class="fa-solid fa-file-csv"></i> <span id="csvFileName">dataset.csv</span>
+          <button id="removeCsvBtn" class="btn-remove-attachment" title="Remove CSV"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="composer-box">
+          <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+          <button id="attachCsvBtn" class="btn-attach" title="Attach CSV Dataset">
+            <i class="fa-solid fa-paperclip"></i>
+          </button>
+          <textarea 
+            id="userInput" 
+            placeholder="Ask Severus anything about Data Science or paste your code..." 
+            rows="1"
+          ></textarea>
+          <button id="sendBtn" class="btn-send" title="Send Message (Enter)">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+        <div class="composer-footer">
+          <span>Severus uses OpenAI API & LangChain • Always verify code before production deployment</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Application Client Script -->
+  <script src="/static/script.js"></script>
+</body>
+</html>
