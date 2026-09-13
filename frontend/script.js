@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Application State
   let currentSessionId = null;
   let recentChats = JSON.parse(localStorage.getItem('severus_recent_chats') || '[]');
+  let currentImageData = null;
 
   // Configure marked markdown options
   if (window.marked) {
@@ -122,6 +123,57 @@ document.addEventListener('DOMContentLoaded', () => {
       sendMessage();
     }
   });
+
+  // Image Attachment Handling (Phase 6: Vision)
+  const attachImageBtn = document.getElementById('attachImageBtn');
+  const imageFileInput = document.getElementById('imageFileInput');
+  const imageAttachmentBadge = document.getElementById('imageAttachmentBadge');
+  const imageFileName = document.getElementById('imageFileName');
+  const removeImageBtn = document.getElementById('removeImageBtn');
+
+  if (attachImageBtn && imageFileInput) {
+    attachImageBtn.addEventListener('click', () => {
+      imageFileInput.click();
+    });
+
+    imageFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+      if (!allowedTypes.includes(file.type.toLowerCase())) {
+        alert('Unsupported image format. Allowed formats: PNG, JPG, JPEG, WEBP.');
+        imageFileInput.value = '';
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Image file size exceeds the 10 MB limit.');
+        imageFileInput.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        currentImageData = event.target.result;
+        imageFileName.textContent = file.name;
+        imageAttachmentBadge.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (removeImageBtn) {
+      removeImageBtn.addEventListener('click', () => {
+        clearImageAttachment();
+      });
+    }
+  }
+
+  function clearImageAttachment() {
+    currentImageData = null;
+    if (imageFileInput) imageFileInput.value = '';
+    if (imageAttachmentBadge) imageAttachmentBadge.classList.add('hidden');
+  }
 
   // CSV Attachment Handling
   const attachCsvBtn = document.getElementById('attachCsvBtn');
@@ -383,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function startNewChat() {
     stopAllSpeech();
     currentSessionId = null;
+    clearImageAttachment();
     barChatTitle.textContent = 'SEVERUS';
     showWelcomeScreen();
     userInput.value = '';
@@ -404,14 +457,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function sendMessage() {
     const text = userInput.value.trim();
-    if (!text) return;
+    const sendingImageData = currentImageData;
+
+    if (!text && !sendingImageData) return;
+    const promptText = text || 'Analyze this image in detail.';
 
     // If no active session, create a new session ID and recent chat title
     let isFirstMessage = false;
     if (!currentSessionId) {
       currentSessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
       isFirstMessage = true;
-      const title = generateChatTitle(text);
+      const title = generateChatTitle(promptText);
       recentChats.unshift({
         id: currentSessionId,
         title: title,
@@ -424,24 +480,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Show conversation stream & append User message
     showConversationView();
-    appendUserMessage(text);
+    appendUserMessage(promptText, sendingImageData);
 
-    // Reset Input Box
+    // Reset Input Box & Attachment
     userInput.value = '';
     userInput.style.height = 'auto';
+    clearImageAttachment();
     sendBtn.disabled = true;
 
     // Show Typing loading indicator
     showTyping(true);
 
     try {
+      const payload = {
+        message: promptText,
+        session_id: currentSessionId
+      };
+      if (sendingImageData) {
+        payload.image_data = sendingImageData;
+      }
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          session_id: currentSessionId
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -462,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function appendUserMessage(text) {
+  function appendUserMessage(text, imageData = null) {
     const row = document.createElement('div');
     row.className = 'msg-row user-msg-row';
 
@@ -472,7 +534,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble user-bubble';
-    bubble.textContent = text;
+
+    if (imageData) {
+      const img = document.createElement('img');
+      img.src = imageData;
+      img.className = 'user-msg-image-thumb';
+      img.style.maxWidth = '240px';
+      img.style.maxHeight = '240px';
+      img.style.borderRadius = '8px';
+      img.style.marginBottom = '8px';
+      img.style.display = 'block';
+      bubble.appendChild(img);
+    }
+
+    const textSpan = document.createElement('div');
+    textSpan.textContent = text;
+    bubble.appendChild(textSpan);
 
     row.appendChild(avatar);
     row.appendChild(bubble);

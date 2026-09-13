@@ -215,10 +215,12 @@ class AIService:
     async def get_response(
         self,
         session_id: str,
-        message: str
+        message: str,
+        image_bytes: Optional[bytes] = None,
+        image_mime: Optional[str] = None
     ) -> str:
         """
-        Send user message to Google Gemini
+        Send user message (and optional image) to Google Gemini
         and persist the conversation.
         """
 
@@ -312,7 +314,7 @@ class AIService:
                 logger.warning(f"Memory retrieval error: {mem_ret_err}")
 
             # -------------------------------------------------
-            # BUILD MESSAGES
+            # BUILD MESSAGES (TEXT OR MULTIMODAL VISION)
             # -------------------------------------------------
 
             messages: List[BaseMessage] = [
@@ -323,11 +325,23 @@ class AIService:
 
             messages.extend(history)
 
-            messages.append(
-                HumanMessage(
-                    content=augmented_message
+            if image_bytes and image_mime:
+                import base64
+                b64_str = base64.b64encode(image_bytes).decode('utf-8')
+                multimodal_content = [
+                    {"type": "text", "text": augmented_message if augmented_message else "Analyze this image in detail."},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{image_mime};base64,{b64_str}"}
+                    }
+                ]
+                messages.append(HumanMessage(content=multimodal_content))
+            else:
+                messages.append(
+                    HumanMessage(
+                        content=augmented_message
+                    )
                 )
-            )
 
 
             # -------------------------------------------------
@@ -347,11 +361,15 @@ class AIService:
                 )
 
             # -------------------------------------------------
-            # UPDATE MEMORY
+            # UPDATE SESSION HISTORY & DATABASE
             # -------------------------------------------------
 
+            saved_user_text = message
+            if image_bytes and image_mime:
+                saved_user_text = f"📷 [Attached Image ({image_mime})]: {message}".strip()
+
             history.append(
-                HumanMessage(content=message)
+                HumanMessage(content=saved_user_text)
             )
 
             history.append(
@@ -365,7 +383,7 @@ class AIService:
             self.save_message(
                 session_id=session_id,
                 role="user",
-                content=message,
+                content=saved_user_text,
             )
 
             self.save_message(

@@ -42,7 +42,12 @@ def test_chat_success_mocked(mock_get_response):
     data = response.json()
     assert data["response"] == "A Pandas DataFrame is a 2D tabular data structure."
     assert data["session_id"] == "test_session_123"
-    mock_get_response.assert_called_once_with(session_id="test_session_123", message="Explain Pandas DataFrame")
+    mock_get_response.assert_called_once_with(
+        session_id="test_session_123",
+        message="Explain Pandas DataFrame",
+        image_bytes=None,
+        image_mime=None
+    )
 
 
 @patch("app.routes.chat.ai_service.get_response", new_callable=AsyncMock)
@@ -319,6 +324,73 @@ def test_memory_api_endpoints():
     del_data = del_res.json()
     assert del_data["status"] == "cleared"
     assert del_data["deleted_count"] >= 1
+
+
+@patch("app.routes.chat.ai_service.get_response", new_callable=AsyncMock)
+def test_vision_valid_image_mocked(mock_get_response):
+    """Verify POST /api/chat handles image understanding requests with mocked Gemini."""
+    mock_get_response.return_value = "The image shows a bar chart representing monthly revenue growth."
+
+    # 1x1 transparent PNG base64
+    valid_png_base64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+    payload = {
+        "message": "What is in this image?",
+        "session_id": "vision_session_1",
+        "image_data": valid_png_base64
+    }
+
+    response = client.post("/api/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "bar chart" in data["response"]
+    assert data["session_id"] == "vision_session_1"
+    assert mock_get_response.called
+
+
+def test_vision_invalid_file_type():
+    """Verify POST /api/chat rejects unsupported image file formats with 400 Bad Request."""
+    invalid_gif_base64 = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+
+    payload = {
+        "message": "Analyze this GIF image",
+        "image_data": invalid_gif_base64
+    }
+
+    response = client.post("/api/chat", json=payload)
+    assert response.status_code == 400
+    assert "Unsupported MIME type" in response.json()["detail"]
+
+
+def test_vision_oversized_file():
+    """Verify VisionService rejects images larger than 10 MB."""
+    from app.services.vision_service import vision_service
+
+    # Create dummy 11 MB bytes
+    oversized_bytes = b"0" * (11 * 1024 * 1024)
+    err = vision_service.validate_image_bytes(oversized_bytes, "large_photo.jpg")
+    assert err is not None
+    assert "exceeds maximum allowed limit of 10 MB" in err
+
+
+def test_vision_missing_or_corrupt_data():
+    """Verify VisionService handles invalid base64 data URIs gracefully."""
+    from app.services.vision_service import vision_service
+
+    bytes_out, mime_out, err = vision_service.parse_data_uri("data:image/png;base64,NOT_VALID_BASE64_!!!")
+    assert bytes_out is None
+    assert err is not None
+
+
+@patch("app.routes.chat.ai_service.get_response", new_callable=AsyncMock)
+def test_vision_text_chat_preservation(mock_get_response):
+    """Verify normal text-only chat requests remain unaffected by vision feature integration."""
+    mock_get_response.return_value = "Standard text response without image."
+
+    response = client.post("/api/chat", json={"message": "Hello Severus"})
+    assert response.status_code == 200
+    assert response.json()["response"] == "Standard text response without image."
+
 
 
 

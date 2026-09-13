@@ -194,10 +194,18 @@
           <i class="fa-solid fa-file-csv"></i> <span id="csvFileName">dataset.csv</span>
           <button id="removeCsvBtn" class="btn-remove-attachment" title="Remove CSV"><i class="fa-solid fa-xmark"></i></button>
         </div>
+        <div class="attachment-badge hidden" id="imageAttachmentBadge">
+          <i class="fa-solid fa-image"></i> <span id="imageFileName">image.png</span>
+          <button id="removeImageBtn" class="btn-remove-attachment" title="Remove Image"><i class="fa-solid fa-xmark"></i></button>
+        </div>
         <div class="composer-box">
           <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+          <input type="file" id="imageFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
           <button id="attachCsvBtn" class="btn-attach" title="Attach CSV Dataset">
             <i class="fa-solid fa-paperclip"></i>
+          </button>
+          <button id="attachImageBtn" class="btn-attach" title="Attach Image (PNG, JPG, WEBP)">
+            <i class="fa-solid fa-image"></i>
           </button>
           <button id="micBtn" class="btn-mic" title="Voice Input (Speech to Text)">
             <i class="fa-solid fa-microphone"></i>

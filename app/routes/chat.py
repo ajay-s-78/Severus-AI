@@ -6,6 +6,7 @@ from app.services.ai_service import ai_service
 from app.services.csv_service import csv_service
 from app.services.computer_control_service import computer_control_service
 from app.services.memory_service import memory_service
+from app.services.vision_service import vision_service
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api", tags=["Chat"])
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="User prompt or code query")
     session_id: Optional[str] = Field(default=None, description="Optional conversation session ID")
+    image_data: Optional[str] = Field(default=None, description="Optional base64 image data URI string")
 
 
 class ChatResponse(BaseModel):
@@ -48,7 +50,7 @@ class ClearHistoryResponse(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     """
     Main chat endpoint for Severus Data Science AI Assistant.
-    Receives user prompt, checks for desktop action intents or processes via LangChain/AI service.
+    Receives user prompt and optional image, checks for desktop action intents or processes via LangChain/AI service.
     """
     message = request.message.strip()
     if not message:
@@ -59,6 +61,17 @@ async def chat_endpoint(request: ChatRequest):
 
     # Use provided session_id or create a new UUID for session
     session_id = request.session_id if request.session_id else str(uuid.uuid4())
+
+    # Image Vision Data Validation
+    image_bytes = None
+    image_mime = None
+    if request.image_data:
+        image_bytes, image_mime, err_msg = vision_service.parse_data_uri(request.image_data)
+        if err_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=err_msg
+            )
 
     # Detect desktop action intent
     action_intent = computer_control_service.detect_action_intent(message)
@@ -78,7 +91,12 @@ async def chat_endpoint(request: ChatRequest):
             )
 
     try:
-        response_text = await ai_service.get_response(session_id=session_id, message=message)
+        response_text = await ai_service.get_response(
+            session_id=session_id,
+            message=message,
+            image_bytes=image_bytes,
+            image_mime=image_mime
+        )
         return ChatResponse(response=response_text, session_id=session_id)
     except Exception as e:
         raise HTTPException(
