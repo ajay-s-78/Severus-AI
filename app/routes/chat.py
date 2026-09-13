@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from app.services.ai_service import ai_service
 from app.services.csv_service import csv_service
+from app.services.computer_control_service import computer_control_service
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -16,6 +17,21 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     session_id: str
+    action_required: Optional[dict] = None
+
+
+class ActionExecuteRequest(BaseModel):
+    action_type: str
+    target: str
+    confirmed: bool = False
+    session_id: Optional[str] = None
+
+
+class ActionExecuteResponse(BaseModel):
+    status: str
+    message: str
+    action_type: Optional[str] = None
+    target: Optional[str] = None
 
 
 class ClearHistoryRequest(BaseModel):
@@ -31,7 +47,7 @@ class ClearHistoryResponse(BaseModel):
 async def chat_endpoint(request: ChatRequest):
     """
     Main chat endpoint for Severus Data Science AI Assistant.
-    Receives user prompt, processes via LangChain and OpenAI API, and returns formatted response.
+    Receives user prompt, checks for desktop action intents or processes via LangChain/AI service.
     """
     message = request.message.strip()
     if not message:
@@ -43,6 +59,23 @@ async def chat_endpoint(request: ChatRequest):
     # Use provided session_id or create a new UUID for session
     session_id = request.session_id if request.session_id else str(uuid.uuid4())
 
+    # Detect desktop action intent
+    action_intent = computer_control_service.detect_action_intent(message)
+    if action_intent:
+        if action_intent.get("action_type") == "blocked":
+            reason = action_intent.get("reason", "Prohibited by safety policy.")
+            blocked_msg = f"⚠️ **Action Blocked**: {reason}"
+            return ChatResponse(response=blocked_msg, session_id=session_id)
+        else:
+            act_type = action_intent["action_type"]
+            target = action_intent["target"]
+            prompt_msg = f"🖥️ **Confirmation Required**: Would you like me to proceed with `{act_type}` on target `{target}`?"
+            return ChatResponse(
+                response=prompt_msg,
+                session_id=session_id,
+                action_required={"action_type": act_type, "target": target}
+            )
+
     try:
         response_text = await ai_service.get_response(session_id=session_id, message=message)
         return ChatResponse(response=response_text, session_id=session_id)
@@ -51,6 +84,24 @@ async def chat_endpoint(request: ChatRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An internal server error occurred: {str(e)}"
         )
+
+
+@router.post("/execute-action", response_model=ActionExecuteResponse, status_code=status.HTTP_200_OK)
+async def execute_action_endpoint(request: ActionExecuteRequest):
+    """
+    Executes a user-confirmed computer control desktop action.
+    """
+    result = computer_control_service.execute_action(
+        action_type=request.action_type,
+        target=request.target,
+        confirmed=request.confirmed
+    )
+    return ActionExecuteResponse(
+        status=result.get("status", "error"),
+        message=result.get("message", ""),
+        action_type=result.get("action_type"),
+        target=result.get("target")
+    )
 
 
 @router.post("/clear", response_model=ClearHistoryResponse, status_code=status.HTTP_200_OK)
@@ -108,5 +159,6 @@ async def upload_csv_endpoint(
         "analysis": analysis,
         "summary_msg": summary_msg
     }
+
 
 

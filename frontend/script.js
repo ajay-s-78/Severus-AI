@@ -171,13 +171,197 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Web Speech API Voice Input Handling (Speech-to-Text)
+  const micBtn = document.getElementById('micBtn');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (micBtn) {
+    if (!SpeechRecognition) {
+      micBtn.title = 'Speech recognition is not supported in this browser';
+      micBtn.addEventListener('click', () => {
+        alert('Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.');
+      });
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      let isListening = false;
+      let existingText = '';
+
+      micBtn.addEventListener('click', () => {
+        if (isListening) {
+          recognition.stop();
+        } else {
+          existingText = userInput.value;
+          try {
+            recognition.start();
+          } catch (e) {
+            console.error('Speech recognition start error:', e);
+          }
+        }
+      });
+
+      recognition.onstart = () => {
+        isListening = true;
+        micBtn.classList.add('listening');
+        micBtn.title = 'Listening... Click to stop voice input';
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
+        }
+
+        const prefix = existingText ? (existingText.trim() + ' ') : '';
+        userInput.value = prefix + transcript;
+        userInput.dispatchEvent(new Event('input'));
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone permission was denied. Please allow microphone access in your browser settings.');
+        }
+        stopListeningState();
+      };
+
+      recognition.onend = () => {
+        stopListeningState();
+      };
+
+      function stopListeningState() {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        micBtn.title = 'Voice Input (Speech to Text)';
+      }
+    }
+  }
+
+  // =========================================================================
+  // WEB SPEECH SYNTHESIS API (PHASE 2: TEXT-TO-SPEECH VOICE OUTPUT)
+  // =========================================================================
+  const speechSynthesisSupported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  const autoVoiceToggleBtn = document.getElementById('autoVoiceToggleBtn');
+  let autoVoiceEnabled = JSON.parse(localStorage.getItem('severus_auto_voice') || 'false');
+  let currentSpeakingBtn = null;
+
+  function updateAutoVoiceToggleUI() {
+    if (!autoVoiceToggleBtn) return;
+    if (!speechSynthesisSupported) {
+      autoVoiceToggleBtn.title = 'Text-to-Speech is not supported in this browser';
+      autoVoiceToggleBtn.disabled = true;
+      return;
+    }
+    if (autoVoiceEnabled) {
+      autoVoiceToggleBtn.classList.add('active');
+      autoVoiceToggleBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> <span class="btn-text">Auto Voice: On</span>';
+    } else {
+      autoVoiceToggleBtn.classList.remove('active');
+      autoVoiceToggleBtn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> <span class="btn-text">Auto Voice: Off</span>';
+    }
+  }
+
+  if (autoVoiceToggleBtn) {
+    updateAutoVoiceToggleUI();
+    autoVoiceToggleBtn.addEventListener('click', () => {
+      if (!speechSynthesisSupported) return;
+      autoVoiceEnabled = !autoVoiceEnabled;
+      localStorage.setItem('severus_auto_voice', JSON.stringify(autoVoiceEnabled));
+      updateAutoVoiceToggleUI();
+    });
+  }
+
+  function resetSpeakingBtnState(btn) {
+    if (!btn) return;
+    btn.classList.remove('speaking');
+    btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Read Aloud';
+    btn.title = 'Read Aloud';
+  }
+
+  function stopAllSpeech() {
+    if (speechSynthesisSupported && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+    if (currentSpeakingBtn) {
+      resetSpeakingBtnState(currentSpeakingBtn);
+      currentSpeakingBtn = null;
+    }
+  }
+
+  function speakMessageText(text, btnElement) {
+    if (!speechSynthesisSupported) {
+      alert('Speech synthesis is not supported in this browser.');
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+
+    if (btnElement && currentSpeakingBtn === btnElement && (synth.speaking || synth.pending)) {
+      stopAllSpeech();
+      return;
+    }
+
+    stopAllSpeech();
+
+    if (!text || !text.trim()) return;
+
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, ' Code snippet omitted. ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[*#_~]/g, '')
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.lang = 'en-US';
+
+    utterance.onstart = () => {
+      if (btnElement) {
+        btnElement.classList.add('speaking');
+        btnElement.innerHTML = '<i class="fa-solid fa-square"></i> Stop';
+        btnElement.title = 'Stop Speaking';
+        currentSpeakingBtn = btnElement;
+      }
+    };
+
+    utterance.onend = () => {
+      if (btnElement) {
+        resetSpeakingBtnState(btnElement);
+      }
+      if (currentSpeakingBtn === btnElement) {
+        currentSpeakingBtn = null;
+      }
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Speech synthesis error:', e);
+      if (btnElement) {
+        resetSpeakingBtnState(btnElement);
+      }
+      if (currentSpeakingBtn === btnElement) {
+        currentSpeakingBtn = null;
+      }
+    };
+
+    synth.speak(utterance);
+  }
+
+
   sendBtn.addEventListener('click', sendMessage);
+
 
   // =========================================================================
   // CORE FUNCTIONS
   // =========================================================================
 
   function startNewChat() {
+    stopAllSpeech();
     currentSessionId = null;
     barChatTitle.textContent = 'SEVERUS';
     showWelcomeScreen();
@@ -185,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.style.height = 'auto';
     renderRecentChatsList();
   }
+
 
   function showWelcomeScreen() {
     welcomeScreen.classList.remove('hidden');
@@ -245,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sendBtn.disabled = false;
 
       if (res.ok && data.response) {
-        appendAIMessage(data.response);
+        appendAIMessage(data.response, data.action_required);
       } else {
         const errorMsg = data.detail || 'An unexpected error occurred while communicating with Severus.';
         appendAIMessage(`⚠️ **Error**: ${errorMsg}`);
@@ -276,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollToBottom();
   }
 
-  function appendAIMessage(rawMarkdown) {
+  function appendAIMessage(rawMarkdown, actionRequired = null) {
     const row = document.createElement('div');
     row.className = 'msg-row ai-msg-row';
 
@@ -300,8 +485,103 @@ document.addEventListener('DOMContentLoaded', () => {
     enhanceCodeBlocks(contentDiv);
 
     bubble.appendChild(contentDiv);
+
+    // If computer control action confirmation is required, append Confirmation Card UI
+    if (actionRequired) {
+      const card = document.createElement('div');
+      card.className = 'action-card';
+      card.innerHTML = `
+        <div class="action-card-header">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>Desktop Action Safety Confirmation</span>
+        </div>
+        <div class="action-card-body">
+          <p><strong>Action:</strong> <code>${escapeHtml(actionRequired.action_type)}</code></p>
+          <p><strong>Target:</strong> <code>${escapeHtml(actionRequired.target)}</code></p>
+        </div>
+        <div class="action-card-actions">
+          <button class="btn-confirm-action"><i class="fa-solid fa-check"></i> Confirm & Execute</button>
+          <button class="btn-cancel-action"><i class="fa-solid fa-xmark"></i> Cancel</button>
+        </div>
+        <div class="action-card-status hidden"></div>
+      `;
+
+      const confirmBtn = card.querySelector('.btn-confirm-action');
+      const cancelBtn = card.querySelector('.btn-cancel-action');
+      const statusDiv = card.querySelector('.action-card-status');
+
+      confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Executing...';
+
+        try {
+          const actRes = await fetch('/api/execute-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action_type: actionRequired.action_type,
+              target: actionRequired.target,
+              confirmed: true,
+              session_id: currentSessionId
+            })
+          });
+          const actData = await actRes.json();
+          statusDiv.classList.remove('hidden');
+          if (actRes.ok && actData.status === 'success') {
+            statusDiv.className = 'action-card-status success';
+            statusDiv.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${escapeHtml(actData.message)}`;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Executed';
+          } else {
+            statusDiv.className = 'action-card-status error';
+            statusDiv.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${escapeHtml(actData.message || 'Execution failed.')}`;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
+          }
+        } catch (e) {
+          statusDiv.classList.remove('hidden');
+          statusDiv.className = 'action-card-status error';
+          statusDiv.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Network error during execution.';
+        }
+      });
+
+      cancelBtn.addEventListener('click', () => {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        statusDiv.classList.remove('hidden');
+        statusDiv.className = 'action-card-status info';
+        statusDiv.innerHTML = '<i class="fa-solid fa-ban"></i> Action cancelled by user.';
+      });
+
+      bubble.appendChild(card);
+    }
+
+    // Read Aloud Speaker Control Footer (Phase 2)
+    if (speechSynthesisSupported) {
+      const footer = document.createElement('div');
+      footer.className = 'msg-footer';
+
+      const speakBtn = document.createElement('button');
+      speakBtn.className = 'btn-speak-msg';
+      speakBtn.title = 'Read Aloud';
+      speakBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Read Aloud';
+
+      speakBtn.addEventListener('click', () => {
+        speakMessageText(contentDiv.innerText, speakBtn);
+      });
+
+      footer.appendChild(speakBtn);
+      bubble.appendChild(footer);
+
+      if (autoVoiceEnabled) {
+        setTimeout(() => {
+          speakMessageText(contentDiv.innerText, speakBtn);
+        }, 150);
+      }
+    }
+
     row.appendChild(avatar);
     row.appendChild(bubble);
+
 
     messagesContainer.appendChild(row);
     scrollToBottom();

@@ -74,10 +74,14 @@
           <span class="bar-title" id="barChatTitle">SEVERUS</span>
         </div>
         <div class="bar-right">
+          <button class="btn-header-action" id="autoVoiceToggleBtn" title="Toggle Auto Read-Aloud">
+            <i class="fa-solid fa-volume-xmark"></i> <span class="btn-text">Auto Voice: Off</span>
+          </button>
           <button class="btn-header-action" id="headerNewChatBtn" title="Start New Conversation">
             <i class="fa-solid fa-plus"></i> <span class="btn-text">New Chat</span>
           </button>
         </div>
+
       </header>
 
       <!-- Chat Viewport -->
@@ -192,6 +196,10 @@
           <button id="attachCsvBtn" class="btn-attach" title="Attach CSV Dataset">
             <i class="fa-solid fa-paperclip"></i>
           </button>
+          <button id="micBtn" class="btn-mic" title="Voice Input (Speech to Text)">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+
           <textarea 
             id="userInput" 
             placeholder="Ask Severus anything about Data Science or paste your code..." 

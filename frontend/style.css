@@ -561,7 +561,56 @@ body {
   border: 1px solid var(--border-color);
   border-top-left-radius: 4px;
   color: var(--text-main);
+  position: relative;
 }
+
+/* AI Message Footer & Read-Aloud Speaker Button */
+.msg-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-speak-msg {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-speak-msg:hover {
+  color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.btn-speak-msg.speaking {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  animation: pulseSpeaker 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseSpeaker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+#autoVoiceToggleBtn.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #10b981;
+}
+
 
 .user-bubble {
   background-color: var(--bg-user-msg);
@@ -692,6 +741,121 @@ pre code {
   50% { transform: translateY(-5px); opacity: 1; }
 }
 
+/* Computer Control Action Card Styling */
+.action-card {
+  margin-top: 14px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.action-card-body p {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.action-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-confirm-action {
+  background: var(--accent-gradient);
+  color: #fff;
+  border: none;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-confirm-action:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-confirm-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-cancel-action {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-action:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.btn-cancel-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-card-status {
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-card-status.hidden {
+  display: none;
+}
+
+.action-card-status.success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.action-card-status.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.action-card-status.info {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
 /* ==========================================================================
    FIXED BOTTOM COMPOSER (CHATGPT-STYLE FLOATING BAR)
    ========================================================================== */
@@ -785,6 +949,39 @@ textarea {
 .btn-attach:hover {
   color: var(--accent-blue);
 }
+
+.btn-mic {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.btn-mic:hover {
+  color: var(--accent-blue);
+}
+
+.btn-mic.listening {
+  color: #ef4444;
+  animation: pulseMic 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseMic {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.85; }
+}
+
+.btn-mic:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 
 .attachment-badge {
   display: flex;

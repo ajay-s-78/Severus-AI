@@ -12,6 +12,8 @@ from langchain_core.messages import (
 from app.core.config import settings
 from app.database.database import get_connection, create_tables
 from app.prompts.system_prompt import SEVERUS_SYSTEM_PROMPT
+from app.services.search_service import search_service
+
 
 
 logger = logging.getLogger("severus.ai_service")
@@ -264,6 +266,34 @@ class AIService:
             )
 
             # -------------------------------------------------
+            # CHECK WEB SEARCH NEED
+            # -------------------------------------------------
+            augmented_message = message
+
+            if search_service.should_search(message):
+                try:
+                    search_results = search_service.search(message)
+                    if search_results:
+                        context_parts = [f"[Web Search Results Context for query: '{message}']"]
+                        sources_list = []
+                        for idx, res in enumerate(search_results, start=1):
+                            context_parts.append(f"{idx}. Title: {res['title']}\n   Snippet: {res['snippet']}\n   URL: {res['url']}")
+                            if res.get("url"):
+                                sources_list.append(f"- [{res['title']}]({res['url']})")
+
+                        sources_formatted = "\n".join(sources_list) if sources_list else ""
+                        search_context = "\n\n".join(context_parts)
+                        
+                        augmented_message = (
+                            f"{search_context}\n\n"
+                            f"User Request: {message}\n\n"
+                            f"Instructions: Use the real-time web search context above to answer the user request accurately. "
+                            f"At the end of your answer, include a section titled '### Sources' citing the retrieved sources:\n{sources_formatted}"
+                        )
+                except Exception as search_err:
+                    logger.warning(f"Web search failed: {search_err}. Proceeding with standard response.")
+
+            # -------------------------------------------------
             # BUILD MESSAGES
             # -------------------------------------------------
 
@@ -277,9 +307,10 @@ class AIService:
 
             messages.append(
                 HumanMessage(
-                    content=message
+                    content=augmented_message
                 )
             )
+
 
             # -------------------------------------------------
             # GEMINI CALL
