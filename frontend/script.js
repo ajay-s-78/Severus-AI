@@ -24,6 +24,42 @@ document.addEventListener('DOMContentLoaded', () => {
   let recentChats = JSON.parse(localStorage.getItem('severus_recent_chats') || '[]');
   let currentImageData = null;
 
+  // JARVIS Status Indicator Helper
+  const jarvisStatusDot = document.getElementById('jarvisStatusDot');
+  const jarvisStatusText = document.getElementById('jarvisStatusText');
+
+  function setJarvisStatus(state, customLabel = null) {
+    if (!jarvisStatusText || !jarvisStatusDot) return;
+    jarvisStatusDot.className = 'status-dot';
+
+    switch (state) {
+      case 'thinking':
+        jarvisStatusDot.classList.add('thinking');
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Thinking...';
+        break;
+      case 'searching':
+        jarvisStatusDot.classList.add('searching');
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Searching Web...';
+        break;
+      case 'vision':
+        jarvisStatusDot.classList.add('vision');
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Analyzing Image...';
+        break;
+      case 'awaiting':
+        jarvisStatusDot.classList.add('awaiting');
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Awaiting Confirmation...';
+        break;
+      case 'speaking':
+        jarvisStatusDot.classList.add('speaking');
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Speaking...';
+        break;
+      case 'ready':
+      default:
+        jarvisStatusText.textContent = customLabel || 'JARVIS: Ready';
+        break;
+    }
+  }
+
   // Configure marked markdown options
   if (window.marked) {
     marked.setOptions({
@@ -175,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (imageAttachmentBadge) imageAttachmentBadge.classList.add('hidden');
   }
 
-  // CSV Attachment Handling
+  // Dataset Attachment Handling (Phase 8: Data Science Workspace)
   const attachCsvBtn = document.getElementById('attachCsvBtn');
   const csvFileInput = document.getElementById('csvFileInput');
   const csvAttachmentBadge = document.getElementById('csvAttachmentBadge');
@@ -191,15 +227,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const file = e.target.files[0];
       if (!file) return;
 
-      if (!file.name.endsWith('.csv')) {
-        alert('Only CSV files (.csv) are supported.');
+      const ext = "." + file.name.split('.').pop().toLowerCase();
+      const allowedExts = ['.csv', '.xlsx', '.xls', '.json', '.txt'];
+      if (!allowedExts.includes(ext)) {
+        alert('Unsupported file format. Supported dataset formats: CSV, Excel (.xlsx), JSON, TXT.');
+        csvFileInput.value = '';
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        alert('Dataset file size exceeds the 15 MB limit.');
+        csvFileInput.value = '';
         return;
       }
 
       csvFileName.textContent = file.name;
       csvAttachmentBadge.classList.remove('hidden');
 
-      // Upload CSV to backend for safe profiling analysis
+      setJarvisStatus('thinking', 'JARVIS: Loading Dataset...');
+
+      // Upload Dataset to backend for safe profiling analysis
       const formData = new FormData();
       formData.append('file', file);
       if (currentSessionId) {
@@ -207,15 +254,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
-        const res = await fetch('/api/upload-csv', {
+        setJarvisStatus('thinking', 'JARVIS: Analyzing Data...');
+        const res = await fetch('/api/upload-dataset', {
           method: 'POST',
           body: formData
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
+          setJarvisStatus('thinking', 'JARVIS: Generating Insights...');
           if (!currentSessionId) {
             currentSessionId = data.session_id;
-            const title = `CSV: ${file.name}`;
+            const title = `Dataset: ${file.name}`;
             recentChats.unshift({ id: currentSessionId, title: title, timestamp: Date.now() });
             saveRecentChats();
             renderRecentChatsList();
@@ -223,15 +272,18 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           showConversationView();
           appendAIMessage(data.analysis.summary_markdown);
+          setJarvisStatus('ready');
           if (!userInput.value.trim()) {
-            userInput.value = 'Analyze this dataset and suggest EDA visualization steps.';
+            userInput.value = 'Explain this dataset, missing values, summary statistics, and important patterns.';
             userInput.dispatchEvent(new Event('input'));
           }
         } else {
-          alert(data.detail || 'Failed to analyze uploaded CSV dataset.');
+          setJarvisStatus('ready');
+          alert(data.detail || 'Failed to analyze uploaded dataset.');
         }
       } catch (err) {
-        alert('Network error while uploading CSV dataset.');
+        setJarvisStatus('ready');
+        alert('Network error while uploading dataset.');
       }
     });
 
@@ -394,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
     utterance.lang = 'en-US';
 
     utterance.onstart = () => {
+      setJarvisStatus('speaking');
       if (btnElement) {
         btnElement.classList.add('speaking');
         btnElement.innerHTML = '<i class="fa-solid fa-square"></i> Stop';
@@ -403,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     utterance.onend = () => {
+      setJarvisStatus('ready');
       if (btnElement) {
         resetSpeakingBtnState(btnElement);
       }
@@ -412,6 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     utterance.onerror = (e) => {
+      setJarvisStatus('ready');
       console.warn('Speech synthesis error:', e);
       if (btnElement) {
         resetSpeakingBtnState(btnElement);
@@ -436,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
     stopAllSpeech();
     currentSessionId = null;
     clearImageAttachment();
+    setJarvisStatus('ready');
     barChatTitle.textContent = 'SEVERUS';
     showWelcomeScreen();
     userInput.value = '';
@@ -488,6 +544,15 @@ document.addEventListener('DOMContentLoaded', () => {
     clearImageAttachment();
     sendBtn.disabled = true;
 
+    // Set JARVIS UI status
+    if (sendingImageData) {
+      setJarvisStatus('vision');
+    } else if (/\b(latest|recent|current|news|today|2025|2026|weather)\b/i.test(promptText)) {
+      setJarvisStatus('searching');
+    } else {
+      setJarvisStatus('thinking');
+    }
+
     // Show Typing loading indicator
     showTyping(true);
 
@@ -511,6 +576,12 @@ document.addEventListener('DOMContentLoaded', () => {
       showTyping(false);
       sendBtn.disabled = false;
 
+      if (data.action_required) {
+        setJarvisStatus('awaiting');
+      } else {
+        setJarvisStatus('ready');
+      }
+
       if (res.ok && data.response) {
         appendAIMessage(data.response, data.action_required);
       } else {
@@ -520,6 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       showTyping(false);
       sendBtn.disabled = false;
+      setJarvisStatus('ready');
       appendAIMessage(`⚠️ **Network Error**: Unable to reach Severus backend server. Please check your local connection or server status.`);
     }
   }
@@ -832,4 +904,146 @@ document.addEventListener('DOMContentLoaded', () => {
     div.textContent = text;
     return div.innerHTML;
   }
+
+  // ==========================================================================
+  // ML WORKSPACE MODAL EVENT HANDLERS
+  // ==========================================================================
+  const mlWorkspaceBtn = document.getElementById('mlWorkspaceBtn');
+  const mlModalOverlay = document.getElementById('mlModalOverlay');
+  const closeMlModalBtn = document.getElementById('closeMlModalBtn');
+  const mlRecommendBtn = document.getElementById('mlRecommendBtn');
+  const mlTrainSubmitBtn = document.getElementById('mlTrainSubmitBtn');
+  const mlFileInput = document.getElementById('mlFileInput');
+  const mlTargetInput = document.getElementById('mlTargetInput');
+  const mlProblemTypeSelect = document.getElementById('mlProblemTypeSelect');
+  const mlAlgorithmSelect = document.getElementById('mlAlgorithmSelect');
+  const mlRecommendationBox = document.getElementById('mlRecommendationBox');
+
+  if (mlWorkspaceBtn && mlModalOverlay) {
+    mlWorkspaceBtn.addEventListener('click', () => {
+      mlModalOverlay.classList.remove('hidden');
+    });
+
+    if (closeMlModalBtn) {
+      closeMlModalBtn.addEventListener('click', () => {
+        mlModalOverlay.classList.add('hidden');
+      });
+    }
+
+    mlModalOverlay.addEventListener('click', (e) => {
+      if (e.target === mlModalOverlay) {
+        mlModalOverlay.classList.add('hidden');
+      }
+    });
+  }
+
+  if (mlRecommendBtn) {
+    mlRecommendBtn.addEventListener('click', async () => {
+      const fileToUpload = (mlFileInput && mlFileInput.files[0]) || currentCsvFile;
+      if (!fileToUpload) {
+        alert('Please select or attach a dataset file (CSV, Excel, JSON, TXT) first.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      const targetVal = mlTargetInput ? mlTargetInput.value.trim() : '';
+      if (targetVal) formData.append('target_col', targetVal);
+
+      try {
+        mlRecommendBtn.disabled = true;
+        mlRecommendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+        
+        const res = await fetch('/api/ml-recommendation', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        mlRecommendBtn.disabled = false;
+        mlRecommendBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Auto Recommend';
+
+        if (res.ok && data.status === 'success') {
+          if (mlProblemTypeSelect) mlProblemTypeSelect.value = data.problem_type;
+          if (mlAlgorithmSelect) mlAlgorithmSelect.value = data.recommended_algorithm;
+          if (mlTargetInput && !mlTargetInput.value) mlTargetInput.value = data.target_column;
+
+          if (mlRecommendationBox) {
+            mlRecommendationBox.classList.remove('hidden');
+            mlRecommendationBox.innerHTML = `
+              <strong><i class="fa-solid fa-robot"></i> Recommendation: ${escapeHtml(data.recommended_algorithm_name)}</strong><br>
+              <span style="font-size:0.8rem;">Task: ${data.problem_type} on target '<code>${escapeHtml(data.target_column)}</code>'</span><br>
+              <span style="font-size:0.78rem; opacity:0.9;">${escapeHtml(data.rationale)}</span>
+            `;
+          }
+        } else {
+          alert(`Recommendation Error: ${data.detail || 'Could not analyze dataset'}`);
+        }
+      } catch (err) {
+        mlRecommendBtn.disabled = false;
+        mlRecommendBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Auto Recommend';
+        alert(`Error: ${err.message}`);
+      }
+    });
+  }
+
+  if (mlTrainSubmitBtn) {
+    mlTrainSubmitBtn.addEventListener('click', async () => {
+      const fileToUpload = (mlFileInput && mlFileInput.files[0]) || currentCsvFile;
+      const targetCol = mlTargetInput ? mlTargetInput.value.trim() : '';
+
+      if (!fileToUpload) {
+        alert('Please select or attach a dataset file (CSV, Excel, JSON, TXT).');
+        return;
+      }
+
+      if (!targetCol) {
+        alert('Please specify a target column name for machine learning training.');
+        return;
+      }
+
+      if (!currentSessionId) {
+        currentSessionId = 'session_' + Date.now();
+      }
+
+      const problemType = mlProblemTypeSelect ? mlProblemTypeSelect.value : 'classification';
+      const algorithm = mlAlgorithmSelect ? mlAlgorithmSelect.value : 'random_forest';
+
+      mlModalOverlay.classList.add('hidden');
+      showConversationView();
+      appendUserMessage(`🤖 Train ${algorithm} model on '${fileToUpload.name}' (Target: ${targetCol}, Task: ${problemType})`);
+
+      setJarvisStatus('thinking', 'JARVIS: Training Model...');
+      showTyping(true);
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('target_col', targetCol);
+      formData.append('algorithm', algorithm);
+      formData.append('problem_type', problemType);
+      formData.append('session_id', currentSessionId);
+
+      try {
+        const res = await fetch('/api/train-ml-model', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        showTyping(false);
+        setJarvisStatus('ready', 'JARVIS: Ready');
+
+        if (res.ok && data.status === 'success') {
+          appendAIMessage(data.result.summary_markdown);
+        } else {
+          appendAIMessage(`⚠️ **Machine Learning Training Error:** ${data.detail || 'Training failed.'}`);
+        }
+      } catch (err) {
+        showTyping(false);
+        setJarvisStatus('ready', 'JARVIS: Ready');
+        appendAIMessage(`⚠️ **Error executing ML workflow:** ${err.message}`);
+      }
+    });
+  }
 });
+

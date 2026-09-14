@@ -2,13 +2,19 @@ import uuid
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from typing import Optional
+from langchain_core.messages import HumanMessage
 from app.services.ai_service import ai_service
 from app.services.csv_service import csv_service
 from app.services.computer_control_service import computer_control_service
 from app.services.memory_service import memory_service
 from app.services.vision_service import vision_service
+from app.services.jarvis_orchestrator import jarvis_orchestrator
+from app.services.data_analysis_service import data_analysis_service
+from app.services.ml_service import ml_service
+from app.services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/api", tags=["Chat"])
+
 
 
 class ChatRequest(BaseModel):
@@ -73,31 +79,18 @@ async def chat_endpoint(request: ChatRequest):
                 detail=err_msg
             )
 
-    # Detect desktop action intent
-    action_intent = computer_control_service.detect_action_intent(message)
-    if action_intent:
-        if action_intent.get("action_type") == "blocked":
-            reason = action_intent.get("reason", "Prohibited by safety policy.")
-            blocked_msg = f"⚠️ **Action Blocked**: {reason}"
-            return ChatResponse(response=blocked_msg, session_id=session_id)
-        else:
-            act_type = action_intent["action_type"]
-            target = action_intent["target"]
-            prompt_msg = f"🖥️ **Confirmation Required**: Would you like me to proceed with `{act_type}` on target `{target}`?"
-            return ChatResponse(
-                response=prompt_msg,
-                session_id=session_id,
-                action_required={"action_type": act_type, "target": target}
-            )
-
     try:
-        response_text = await ai_service.get_response(
+        orch_res = await jarvis_orchestrator.orchestrate(
             session_id=session_id,
             message=message,
             image_bytes=image_bytes,
             image_mime=image_mime
         )
-        return ChatResponse(response=response_text, session_id=session_id)
+        return ChatResponse(
+            response=orch_res["response"],
+            session_id=orch_res["session_id"],
+            action_required=orch_res.get("action_required")
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -143,21 +136,25 @@ async def get_history_endpoint(session_id: str):
 
 
 @router.post("/upload-csv")
-async def upload_csv_endpoint(
+@router.post("/upload-dataset")
+async def upload_dataset_endpoint(
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None)
 ):
     """
-    Uploads a CSV file, computes safe metadata profile, and optionally injects summary into session history.
+    Uploads a dataset (CSV, Excel .xlsx, JSON, TXT), performs data science workspace analysis,
+    and injects structured summary into session history.
     """
-    if not file.filename.endswith('.csv'):
+    ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+    allowed = {".csv", ".xlsx", ".xls", ".json", ".txt"}
+    if ext not in allowed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file format. Only CSV files (.csv) are supported."
+            detail=f"Invalid file format '{ext}'. Supported dataset formats: CSV, Excel (.xlsx), JSON, TXT."
         )
 
     file_bytes = await file.read()
-    analysis = csv_service.analyze_csv_bytes(file_bytes, file.filename)
+    analysis = data_analysis_service.analyze_dataset_bytes(file_bytes, file.filename)
 
     if "error" in analysis:
         raise HTTPException(
@@ -167,9 +164,11 @@ async def upload_csv_endpoint(
 
     sid = session_id if session_id else str(uuid.uuid4())
     
-    # Prepend dataset profile summary into conversation history
-    summary_msg = f"[System Context: User uploaded CSV dataset '{file.filename}']\n" + analysis["summary_markdown"]
-    ai_service.get_session_history(sid)  # ensure session exists
+    # Inject dataset profile summary into conversation history & SQLite
+    summary_msg = f"[System Context: User uploaded dataset '{file.filename}']\n" + analysis["summary_markdown"]
+    history = ai_service.get_session_history(sid)
+    history.append(HumanMessage(content=summary_msg))
+    ai_service.save_message(session_id=sid, role="user", content=summary_msg)
 
     return {
         "status": "success",
@@ -196,6 +195,131 @@ async def clear_memory_endpoint():
     """
     count = memory_service.clear_all_memories()
     return {"status": "cleared", "deleted_count": count}
+
+
+@router.post("/train-ml-model")
+async def train_ml_model_endpoint(
+    file: UploadFile = File(...),
+    target_col: str = Form(...),
+    algorithm: str = Form("random_forest"),
+    problem_type: Optional[str] = Form(None),
+    session_id: Optional[str] = Form(None)
+):
+    """
+    Trains a safe scikit-learn Machine Learning model (Classification or Regression)
+    on an uploaded dataset and returns evaluation metrics.
+    """
+    file_bytes = await file.read()
+    res = ml_service.train_and_evaluate(
+        file_bytes=file_bytes,
+        filename=file.filename,
+        target_col=target_col,
+        algorithm=algorithm,
+        problem_type=problem_type
+    )
+
+    if "error" in res:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=res["error"]
+        )
+
+    sid = session_id if session_id else str(uuid.uuid4())
+    summary_msg = f"[System Context: ML Model Training Result for '{file.filename}']\n" + res["summary_markdown"]
+    history = ai_service.get_session_history(sid)
+    history.append(HumanMessage(content=summary_msg))
+    ai_service.save_message(session_id=sid, role="user", content=summary_msg)
+
+    return {
+        "status": "success",
+        "session_id": sid,
+        "result": res
+    }
+
+
+@router.post("/ml-recommendation")
+async def ml_recommendation_endpoint(
+    file: UploadFile = File(...),
+    target_col: Optional[str] = Form(None)
+):
+    """
+    Analyzes dataset properties and recommends the optimal machine learning algorithm.
+    """
+    file_bytes = await file.read()
+    validation_err = data_analysis_service.validate_dataset(file_bytes, file.filename)
+    if validation_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=validation_err
+        )
+
+    try:
+        df = data_analysis_service.read_dataframe(file_bytes, file.filename)
+        res = ml_service.recommend_model(df, target_col)
+        if "error" in res:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=res["error"]
+            )
+        return res
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to process dataset for recommendation: {str(e)}"
+        )
+@router.post("/analytics/analyze")
+async def analytics_analyze_endpoint(
+    file: UploadFile = File(...),
+):
+    file_bytes = await file.read()
+
+    result = analytics_service.analyze_file(
+        file_bytes,
+        file.filename
+    )
+
+    if "error" in result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result["error"]
+        )
+
+    return {
+        "status": "success",
+        "filename": file.filename,
+        "analysis": result
+    }
+
+
+@router.post("/analytics/chart")
+async def analytics_chart_endpoint(
+    file: UploadFile = File(...),
+    chart_type: str = Form(...),
+    x_column: Optional[str] = Form(None),
+    y_column: Optional[str] = Form(None),
+):
+    file_bytes = await file.read()
+
+    result = analytics_service.generate_chart_from_file(
+        file_bytes=file_bytes,
+        filename=file.filename,
+        chart_type=chart_type,
+        x_column=x_column,
+        y_column=y_column,
+    )
+
+    if "error" in result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result["error"]
+        )
+
+    return {
+        "status": "success",
+        "filename": file.filename,
+        "chart": result
+    }
+
 
 
 

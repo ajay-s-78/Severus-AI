@@ -392,5 +392,442 @@ def test_vision_text_chat_preservation(mock_get_response):
     assert response.json()["response"] == "Standard text response without image."
 
 
+def test_jarvis_intent_classification():
+    """Verify JarvisOrchestrator accurately classifies intents across capabilities."""
+    from app.services.jarvis_orchestrator import jarvis_orchestrator
+
+    # Computer Control Intent
+    intent = jarvis_orchestrator.classify_intent("open notepad")
+    assert intent["primary_intent"] == "computer_control"
+    assert intent["action_intent"] is not None
+
+    # Web Search Intent
+    intent = jarvis_orchestrator.classify_intent("What is the latest release of Python?")
+    assert intent["primary_intent"] == "web_search"
+    assert intent["needs_search"] is True
+
+    # Memory Intent
+    intent = jarvis_orchestrator.classify_intent("Remember that my name is Alice")
+    assert intent["primary_intent"] == "memory"
+    assert intent["is_memory_query"] is True
+
+    # Vision Intent
+    intent = jarvis_orchestrator.classify_intent("Describe image", has_image=True)
+    assert intent["primary_intent"] == "vision"
+    assert intent["has_image"] is True
+
+    # Combined Vision + Search Intent
+    intent = jarvis_orchestrator.classify_intent("What is the latest news about this chart image?", has_image=True)
+    assert intent["primary_intent"] == "vision_search"
 
 
+@patch("app.services.jarvis_orchestrator.ai_service.get_response", new_callable=AsyncMock)
+def test_jarvis_orchestrate_routing(mock_get_response):
+    """Verify JarvisOrchestrator orchestrates AI responses with status indicators."""
+    import asyncio
+    from app.services.jarvis_orchestrator import jarvis_orchestrator
+
+    mock_get_response.return_value = "At your service."
+
+    result = asyncio.run(jarvis_orchestrator.orchestrate(session_id="s1", message="Hello Severus"))
+    assert result["response"] == "At your service."
+    assert result["intent"] == "general"
+    assert result["status_text"] == "Ready"
+
+
+def test_jarvis_orchestrate_computer_control_safety():
+    """Verify JarvisOrchestrator preserves mandatory two-step confirmation for desktop actions."""
+    import asyncio
+    from app.services.jarvis_orchestrator import jarvis_orchestrator
+
+    result = asyncio.run(jarvis_orchestrator.orchestrate(session_id="s1", message="open calculator"))
+    assert result["intent"] == "computer_control"
+    assert result["status_text"] == "Awaiting Confirmation"
+    assert result["action_required"]["action_type"] == "open_app"
+    assert result["action_required"]["target"] == "calculator"
+
+
+def test_data_analysis_service_csv():
+    """Verify DataAnalysisService parses CSV datasets, missing values, duplicates, and correlations."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    csv_data = "Age,Salary,Score\n25,50000,80\n30,70000,90\n25,50000,80\n35,,95\n"
+    res = data_analysis_service.analyze_dataset_bytes(csv_data.encode("utf-8"), "test.csv")
+
+    assert "error" not in res
+    assert res["num_rows"] == 4
+    assert res["num_cols"] == 3
+    assert res["duplicate_rows"] == 1
+    assert res["missing_counts"]["Salary"] == 1
+    assert len(res["numeric_columns"]) == 3
+    assert len(res["correlations"]) >= 1
+
+
+def test_data_analysis_service_excel():
+    """Verify DataAnalysisService parses Excel (.xlsx) dataset bytes."""
+    import pandas as pd
+    from app.services.data_analysis_service import data_analysis_service
+
+    df = pd.DataFrame({"Feature1": [1, 2, 3], "Feature2": [10.5, 20.5, 30.5]})
+    excel_buffer = io.BytesIO()
+    df.to_excel(excel_buffer, index=False, engine="openpyxl")
+    excel_bytes = excel_buffer.getvalue()
+
+    res = data_analysis_service.analyze_dataset_bytes(excel_bytes, "data.xlsx")
+    assert "error" not in res
+    assert res["num_rows"] == 3
+    assert res["num_cols"] == 2
+    assert "Feature1" in res["columns"]
+
+
+def test_data_analysis_service_json():
+    """Verify DataAnalysisService parses JSON dataset bytes."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    json_str = '[{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]'
+    res = data_analysis_service.analyze_dataset_bytes(json_str.encode("utf-8"), "users.json")
+
+    assert "error" not in res
+    assert res["num_rows"] == 2
+    assert res["num_cols"] == 2
+    assert "age" in res["columns"]
+
+
+def test_data_analysis_service_txt():
+    """Verify DataAnalysisService parses TXT dataset bytes."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    txt_data = "ID,Val\n1,10\n2,20\n"
+    res = data_analysis_service.analyze_dataset_bytes(txt_data.encode("utf-8"), "log.txt")
+
+    assert "error" not in res
+    assert res["num_rows"] >= 2
+
+
+def test_data_analysis_service_invalid_extension():
+    """Verify DataAnalysisService rejects unsupported file formats."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    res = data_analysis_service.analyze_dataset_bytes(b"content", "script.py")
+    assert "error" in res
+    assert "Unsupported file format" in res["error"]
+
+
+def test_data_analysis_service_oversized():
+    """Verify DataAnalysisService rejects datasets > 15 MB."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    large_bytes = b"0" * (16 * 1024 * 1024)
+    res = data_analysis_service.analyze_dataset_bytes(large_bytes, "big.csv")
+    assert "error" in res
+    assert "exceeds maximum allowed limit of 15 MB" in res["error"]
+
+
+def test_data_analysis_service_corrupt():
+    """Verify DataAnalysisService handles corrupt unparseable data gracefully."""
+    from app.services.data_analysis_service import data_analysis_service
+
+    res = data_analysis_service.analyze_dataset_bytes(b"CORRUPT_NOT_EXCEL", "corrupt.xlsx")
+    assert "error" in res
+    assert "Failed to analyze dataset" in res["error"]
+
+
+def test_jarvis_data_analysis_intent():
+    """Verify JarvisOrchestrator detects data_analysis intent for dataset queries."""
+    from app.services.jarvis_orchestrator import jarvis_orchestrator
+
+    intent = jarvis_orchestrator.classify_intent("Which columns have missing values in the dataset?")
+    assert intent["primary_intent"] == "data_analysis"
+    assert intent["is_ds_query"] is True
+
+
+def test_upload_dataset_endpoint():
+    """Verify POST /api/upload-dataset endpoint handles multi-format uploads."""
+    json_str = '[{"a": 1, "b": 2}, {"a": 3, "b": 4}]'
+    file_bytes = io.BytesIO(json_str.encode("utf-8"))
+
+    response = client.post(
+        "/api/upload-dataset",
+        files={"file": ("dataset.json", file_bytes, "application/json")},
+        data={"session_id": "ds_session_1"}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["filename"] == "dataset.json"
+    assert data["analysis"]["num_rows"] == 2
+
+
+# ==============================================================================
+# PHASE 9: ADVANCED MACHINE LEARNING WORKSPACE TESTS
+# ==============================================================================
+
+def test_ml_service_classification_algorithms():
+    """Verify MLService trains and evaluates all supported classification algorithms."""
+    from app.services.ml_service import ml_service
+
+    # Create dummy classification dataset
+    csv_data = (
+        "Age,Income,Category,Churn\n"
+        "25,50000,Low,0\n"
+        "45,120000,High,1\n"
+        "35,80000,Medium,0\n"
+        "50,140000,High,1\n"
+        "23,30000,Low,0\n"
+        "38,95000,Medium,1\n"
+        "29,62000,Low,0\n"
+        "48,130000,High,1\n"
+        "31,71000,Medium,0\n"
+        "55,150000,High,1\n"
+    )
+    file_bytes = csv_data.encode("utf-8")
+
+    algos = ["logistic_regression", "decision_tree", "random_forest", "knn"]
+    for algo in algos:
+        res = ml_service.train_and_evaluate(
+            file_bytes=file_bytes,
+            filename="churn.csv",
+            target_col="Churn",
+            algorithm=algo,
+            problem_type="classification"
+        )
+        assert "error" not in res, f"Failed for algorithm {algo}: {res.get('error')}"
+        assert res["status"] == "success"
+        assert res["problem_type"] == "classification"
+        metrics = res["metrics"]
+        assert "accuracy" in metrics
+        assert "precision" in metrics
+        assert "recall" in metrics
+        assert "f1_score" in metrics
+        assert "confusion_matrix" in metrics
+        assert isinstance(metrics["confusion_matrix"], list)
+
+
+def test_ml_service_regression_algorithms():
+    """Verify MLService trains and evaluates all supported regression algorithms."""
+    from app.services.ml_service import ml_service
+
+    csv_data = (
+        "Area,Bedrooms,Age,Price\n"
+        "1000,2,10,250000\n"
+        "1500,3,5,380000\n"
+        "800,1,15,180000\n"
+        "2000,4,2,500000\n"
+        "1200,2,8,300000\n"
+        "1800,3,3,450000\n"
+        "950,2,12,220000\n"
+        "2200,4,1,550000\n"
+        "1100,2,7,280000\n"
+        "1600,3,4,410000\n"
+    )
+    file_bytes = csv_data.encode("utf-8")
+
+    algos = ["linear_regression", "decision_tree_regressor", "random_forest_regressor"]
+    for algo in algos:
+        res = ml_service.train_and_evaluate(
+            file_bytes=file_bytes,
+            filename="housing.csv",
+            target_col="Price",
+            algorithm=algo,
+            problem_type="regression"
+        )
+        assert "error" not in res, f"Failed for algorithm {algo}: {res.get('error')}"
+        assert res["status"] == "success"
+        assert res["problem_type"] == "regression"
+        metrics = res["metrics"]
+        assert "mae" in metrics
+        assert "mse" in metrics
+        assert "rmse" in metrics
+        assert "r2_score" in metrics
+
+
+def test_ml_service_auto_recommendation():
+    """Verify MLService automatically recommends algorithm based on task and dataset."""
+    import pandas as pd
+    from app.services.ml_service import ml_service
+
+    # Classification dataset
+    df_class = pd.DataFrame({
+        "Feature1": [1, 2, 3, 4, 5, 6],
+        "City": ["A", "B", "A", "B", "A", "B"],
+        "Target": ["Yes", "No", "Yes", "No", "Yes", "No"]
+    })
+    rec_class = ml_service.recommend_model(df_class, target_col="Target")
+    assert rec_class["status"] == "success"
+    assert rec_class["problem_type"] == "classification"
+    assert "recommended_algorithm" in rec_class
+    assert "rationale" in rec_class
+
+    # Regression dataset
+    df_reg = pd.DataFrame({
+        "Size": [10, 20, 30, 40, 50, 60],
+        "Weight": [1.5, 2.5, 3.5, 4.5, 5.5, 6.5],
+        "Score": [10.2, 20.4, 30.1, 40.8, 50.2, 60.9]
+    })
+    rec_reg = ml_service.recommend_model(df_reg, target_col="Score")
+    assert rec_reg["status"] == "success"
+    assert rec_reg["problem_type"] == "regression"
+
+
+def test_ml_service_invalid_target():
+    """Verify MLService handles invalid or missing target column gracefully."""
+    from app.services.ml_service import ml_service
+
+    csv_data = "A,B\n1,2\n3,4\n5,6\n7,8\n9,10\n"
+    res = ml_service.train_and_evaluate(
+        file_bytes=csv_data.encode("utf-8"),
+        filename="test.csv",
+        target_col="NonExistentCol"
+    )
+    assert "error" in res
+    assert "Target column 'NonExistentCol' not found" in res["error"]
+
+
+def test_ml_service_unsupported_algorithm():
+    """Verify MLService rejects unsupported algorithms not in allowlist."""
+    from app.services.ml_service import ml_service
+
+    csv_data = "A,B,Target\n1,2,0\n3,4,1\n5,6,0\n7,8,1\n9,10,0\n"
+    res = ml_service.train_and_evaluate(
+        file_bytes=csv_data.encode("utf-8"),
+        filename="test.csv",
+        target_col="Target",
+        algorithm="unsupported_xgboost_exec"
+    )
+    assert "error" in res
+    assert "Unsupported classification algorithm" in res["error"]
+
+
+def test_ml_service_insufficient_or_single_class_data():
+    """Verify MLService detects single class target or insufficient data rows."""
+    from app.services.ml_service import ml_service
+
+    # Single class target
+    single_class_csv = "Feature,Target\n10,1\n20,1\n30,1\n40,1\n50,1\n"
+    res = ml_service.train_and_evaluate(
+        file_bytes=single_class_csv.encode("utf-8"),
+        filename="single.csv",
+        target_col="Target",
+        problem_type="classification"
+    )
+    assert "error" in res
+    assert "at least 2 distinct classes" in res["error"]
+
+
+def test_ml_service_secret_protection():
+    """Verify MLService output does not expose API keys or passwords."""
+    from app.services.ml_service import ml_service
+
+    assert ml_service.contains_secret("AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5") is True
+    assert ml_service.contains_secret("GOOGLE_API_KEY=12345") is True
+
+    csv_data = "A,B,Target\n1,2,0\n3,4,1\n5,6,0\n7,8,1\n9,10,0\n"
+    res = ml_service.train_and_evaluate(
+        file_bytes=csv_data.encode("utf-8"),
+        filename="clean.csv",
+        target_col="Target"
+    )
+    assert "AIzaSy" not in res["summary_markdown"]
+    assert "GOOGLE_API_KEY" not in res["summary_markdown"]
+
+
+def test_ml_no_arbitrary_code_execution():
+    """Verify MLService does not execute arbitrary code or string evaluations."""
+    from app.services.ml_service import ml_service
+    import inspect
+
+    source = inspect.getsource(ml_service.__class__)
+    assert "eval(" not in source
+    assert "exec(" not in source
+    assert "__import__" not in source
+
+
+def test_jarvis_machine_learning_intent():
+    """Verify JarvisOrchestrator detects machine_learning intent for ML queries."""
+    from app.services.jarvis_orchestrator import jarvis_orchestrator
+
+    intent1 = jarvis_orchestrator.classify_intent("Build a classification model for this dataset.")
+    assert intent1["primary_intent"] == "machine_learning"
+    assert intent1["is_ml_query"] is True
+
+    intent2 = jarvis_orchestrator.classify_intent("Predict whether a customer will churn.")
+    assert intent2["primary_intent"] == "machine_learning"
+
+    intent3 = jarvis_orchestrator.classify_intent("Which algorithm should I use?")
+    assert intent3["primary_intent"] == "machine_learning"
+
+
+def test_api_train_ml_model_endpoint():
+    """Verify POST /api/train-ml-model endpoint trains model and injects summary into session."""
+    csv_data = "Age,Score,Class\n20,80,A\n30,90,B\n40,85,A\n50,95,B\n25,82,A\n35,92,B\n"
+    file_bytes = io.BytesIO(csv_data.encode("utf-8"))
+
+    response = client.post(
+        "/api/train-ml-model",
+        files={"file": ("dataset.csv", file_bytes, "text/csv")},
+        data={
+            "target_col": "Class",
+            "algorithm": "random_forest",
+            "problem_type": "classification",
+            "session_id": "ml_test_session"
+        }
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["session_id"] == "ml_test_session"
+    assert data["result"]["algorithm"] == "random_forest"
+    assert "accuracy" in data["result"]["metrics"]
+
+
+def test_api_ml_recommendation_endpoint():
+    """Verify POST /api/ml-recommendation endpoint returns algorithm recommendations."""
+    csv_data = "Feature1,Feature2,Target\n1,10,0\n2,20,1\n3,30,0\n4,40,1\n5,50,0\n6,60,1\n"
+    file_bytes = io.BytesIO(csv_data.encode("utf-8"))
+
+    response = client.post(
+        "/api/ml-recommendation",
+        files={"file": ("recommend.csv", file_bytes, "text/csv")},
+        data={"target_col": "Target"}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["target_column"] == "Target"
+    assert "recommended_algorithm" in data
+def test_analytics_service_basic_analysis():
+    import pandas as pd
+    from app.services.analytics_service import analytics_service
+
+    df = pd.DataFrame({
+        "Age": [20, 25, 30, 35, 40],
+        "Salary": [20000, 30000, 40000, 50000, 60000],
+        "Department": ["IT", "HR", "IT", "Sales", "HR"]
+    })
+
+    result = analytics_service.analyze_dataframe(df)
+
+    assert "error" not in result
+    assert result["dataset_shape"]["rows"] == 5
+    assert result["dataset_shape"]["columns"] == 3
+    assert "missing_values" in result
+    assert "duplicate_rows" in result
+
+def test_analytics_correlation_analysis():
+    import pandas as pd
+    from app.services.analytics_service import analytics_service
+
+    df = pd.DataFrame({
+        "Age": [20, 25, 30, 35, 40],
+        "Salary": [20000, 30000, 40000, 50000, 60000]
+    })
+
+    result = analytics_service.analyze_correlations(df)
+
+    assert result["available"] is True
+    assert "matrix" in result
+    assert "Age" in result["matrix"]
+    assert "Salary" in result["matrix"]["Age"]

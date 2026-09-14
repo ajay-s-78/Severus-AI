@@ -57,8 +57,8 @@
 
       <!-- Sidebar Footer -->
       <div class="sidebar-footer">
-        <div class="system-status">
-          <span class="status-dot"></span> Severus AI Engine Ready
+        <div class="system-status" id="jarvisStatusContainer">
+          <span class="status-dot" id="jarvisStatusDot"></span> <span id="jarvisStatusText">JARVIS: Ready</span>
         </div>
       </div>
     </aside>
@@ -74,6 +74,9 @@
           <span class="bar-title" id="barChatTitle">SEVERUS</span>
         </div>
         <div class="bar-right">
+          <button class="btn-header-action" id="mlWorkspaceBtn" title="Machine Learning Workspace">
+            <i class="fa-solid fa-robot"></i> <span class="btn-text">ML Workspace</span>
+          </button>
           <button class="btn-header-action" id="clearMemoryBtn" title="Clear Advanced Conversation Memory">
             <i class="fa-solid fa-brain"></i> <span class="btn-text">Clear Memory</span>
           </button>
@@ -84,6 +87,7 @@
             <i class="fa-solid fa-plus"></i> <span class="btn-text">New Chat</span>
           </button>
         </div>
+
 
       </header>
 
@@ -199,9 +203,9 @@
           <button id="removeImageBtn" class="btn-remove-attachment" title="Remove Image"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="composer-box">
-          <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+          <input type="file" id="csvFileInput" accept=".csv, .xlsx, .xls, .json, .txt" style="display: none;">
           <input type="file" id="imageFileInput" accept="image/png, image/jpeg, image/webp" style="display: none;">
-          <button id="attachCsvBtn" class="btn-attach" title="Attach CSV Dataset">
+          <button id="attachCsvBtn" class="btn-attach" title="Attach Dataset (CSV, Excel, JSON, TXT)">
             <i class="fa-solid fa-paperclip"></i>
           </button>
           <button id="attachImageBtn" class="btn-attach" title="Attach Image (PNG, JPG, WEBP)">
@@ -227,7 +231,51 @@
     </main>
   </div>
 
+  <!-- ML Workspace Modal -->
+  <div class="modal-overlay hidden" id="mlModalOverlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-robot"></i> Safe Machine Learning Workspace</h3>
+        <button class="modal-close-btn" id="closeMlModalBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="mlFileInput"><i class="fa-solid fa-file-arrow-up"></i> Select Dataset (CSV, Excel, JSON, TXT):</label>
+          <input type="file" id="mlFileInput" accept=".csv, .xlsx, .xls, .json, .txt" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="mlTargetInput"><i class="fa-solid fa-bullseye"></i> Target Column Name:</label>
+          <input type="text" id="mlTargetInput" placeholder="e.g. churn, price, label, status" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="mlProblemTypeSelect"><label><i class="fa-solid fa-sliders"></i> Task Type:</label>
+          <select id="mlProblemTypeSelect" class="form-control">
+            <option value="classification">Classification</option>
+            <option value="regression">Regression</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="mlAlgorithmSelect"><i class="fa-solid fa-network-wired"></i> Algorithm:</label>
+          <select id="mlAlgorithmSelect" class="form-control">
+            <option value="random_forest">Random Forest (Recommended Default)</option>
+            <option value="logistic_regression">Logistic Regression / Linear Regression</option>
+            <option value="decision_tree">Decision Tree</option>
+            <option value="knn">K-Nearest Neighbors</option>
+          </select>
+        </div>
+        <div class="ml-recommendation-box hidden" id="mlRecommendationBox">
+          <!-- Populated dynamically via script.js -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="mlRecommendBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Recommend</button>
+        <button class="btn-primary" id="mlTrainSubmitBtn"><i class="fa-solid fa-play"></i> Train & Evaluate</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Application Client Script -->
   <script src="/static/script.js"></script>
 </body>
 </html>
+
