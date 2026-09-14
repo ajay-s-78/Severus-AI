@@ -1,126 +1,130 @@
-# SEVERUS — Data Science AI Assistant & Personal JARVIS Workspace
+# SEVERUS — Data Science Generative AI Assistant & Futuristic JARVIS Command Center
 
-> **Disclaimer**: Severus is a Data Science & Personal AI Assistant application built using OpenAI API, LangChain, FastAPI, and local SciPy acoustic speaker authorization.
-
----
-
-## 1. Project Overview
-
-**SEVERUS** is a ChatGPT-style personal AI assistant with JARVIS-style capabilities designed for Data Science learners, analysts, and developers. Severus acts as an intelligent pair programmer, tutor, desktop computer controller, machine learning builder, and dataset analyst.
-
-### Key Capabilities
-- 🛠️ **Code Correction & Debugging**: Identifies syntax, logical, and API usage errors in Python/Pandas/SQL code.
-- 🎙️ **Voice Input & Voice Output**: Integrated Web Speech API speech-to-text recognition and text-to-speech auto read-aloud.
-- 🔐 **Owner Speaker Verification & Identity Authorization**: Local acoustic speaker verification (`speaker_verification_service.py`) enforcing backend owner security decisions.
-- 💻 **Safe Desktop Computer Control**: Safe application launcher, website opener, and file explorer with two-step confirmation and strict allowlists.
-- 🔒 **Private Owner Memory Protection**: SQLite persistent memory service filtering secrets, API keys, passwords, and restricting owner private memories to verified speakers.
-- 🤖 **Machine Learning Workspace**: Automated scikit-learn model training (Random Forest, Logistic Regression, Decision Tree, KNN) with metrics evaluation.
-- 📊 **Advanced Analytics & Visualization**: Automatic EDA, dataset profiling, correlation heatmaps, histograms, scatter plots, and box plots.
-- 👁️ **Vision & Multimodal Image Understanding**: PNG, JPG, and WEBP image analysis.
-- 🌐 **Real-Time Web Search**: Free, zero-config web search retrieval via DuckDuckGo & optional Tavily integration.
+> **SEVERUS** is an production-ready, multi-user Data Science Generative AI Assistant and futuristic JARVIS-style Command Center powered by Google Gemini, LangChain, FastAPI, SQLite, and local acoustic speaker authorization.
 
 ---
 
-## 2. Security Architecture & Authorization Policy
+## 🚀 1. Overview & Key Capabilities
+
+SEVERUS transforms traditional AI assistant interaction by pairing a **futuristic JARVIS SVG AI Core HUD** with a **ChatGPT-quality conversational stream** on the same screen. It acts as an autonomous pair programmer, Data Science workspace, machine learning builder, document RAG intelligence engine, and secure desktop task manager.
+
+### 🌟 Features Summary (Phases 1 - 18)
+- 🎙️ **Voice First & Continuous Hands-Free Voice Mode**: Wake phrase recognition ("Hey Severus" / "Severus"), command prefix stripping, continuous speech recognition loops, and voice interruption (`Stop Voice`).
+- 🤖 **10-Agent Modular System**: Specialized sub-agents (General, Data Science, ML, Analytics, Vision, Web Search, Document RAG, Memory, Computer Control, Voice) with timeout safeguards and retry limits.
+- 📚 **RAG & Document Intelligence**: Upload and ask questions about PDF, DOCX, TXT, CSV, and XLSX documents with chunking, TF-IDF similarity retrieval, and grounded source citations.
+- 🔐 **Multi-User JWT Authentication & Security Isolation**: Secure PBKDF2 password hashing, JWT access token authentication, user/admin roles, and user-isolated chat history, memories, and documents.
+- 🛡️ **Owner Speaker Verification**: Local acoustic spectral embedding verification enforcing owner-only computer control and private memory protection.
+- 📊 **Advanced Analytics & Visualization**: Automatic EDA, dataset profiling, correlation matrices, missing value checks, and Matplotlib chart generation (Histogram, Bar, Line, Scatter, Box, Heatmap).
+- 🧠 **Machine Learning Workspace**: Automated scikit-learn training for classification and regression models (Random Forest, Logistic Regression, Decision Tree, KNN, Linear Regression) with auto-recommendation algorithms.
+- 👁️ **Vision & Multimodal Understanding**: PNG, JPG, and WEBP image analysis.
+- 🌐 **Real-Time Web Search**: DuckDuckGo integration for live web context.
+- 💻 **Safe Computer Control**: Confirmation-gated launcher for desktop applications and web URLs with safety allowlist enforcement.
+- 🐳 **Docker & Cloud Readiness**: Production Dockerfile, docker-compose.yml, liveness `/health` & readiness `/readiness` probes, rate limiting, correlation ID tracking, and security headers.
+
+---
+
+## 🔒 2. Security Architecture & Authorization Model
 
 ```
-                    SEVERUS
-                       │
-                 Voice Command
-                       │
-             Speaker Verification
-                       │
-             ┌─────────┴─────────┐
-             │                   │
-       OWNER VERIFIED       NOT VERIFIED
-             │                   │
-             ▼                   ▼
-      FULL PERMITTED          CHAT ONLY
-       CAPABILITIES             MODE
-             │
-             ├─ Web Search
-             ├─ Computer Control (Confirmed)
-             ├─ Desktop Apps & Files
-             ├─ Data Science Workspace
-             ├─ Machine Learning
-             ├─ Analytics & Charts
-             ├─ Vision & Multimodal
-             └─ Private Owner Memory
+                         SEVERUS AI CORE
+                                │
+                          User Input
+                                │
+                       JWT & Speaker Gate
+                                │
+             ┌──────────────────┴──────────────────┐
+             │                                     │
+       AUTHORIZED OWNER                      UNAUTHORIZED / GUEST
+             │                                     │
+             ▼                                     ▼
+    FULL CAPABILITIES                      CHAT ONLY MODE
+    + Computer Control (Confirmed)         + Standard Q&A
+    + Private Owner Memory                 + Public Data Science
+    + User Isolated Documents              + User Isolated Documents
 ```
 
-### Authorization Modes
-1. **AUTHORIZED_OWNER**:
-   - Full access to permitted computer control capabilities (subject to mandatory two-step confirmation).
-   - Access to personal owner memory and preferences.
-2. **UNAUTHORIZED_SPEAKER / VERIFICATION_UNAVAILABLE**:
-   - Normal conversational AI and general Data Science Q&A allowed.
-   - **Computer Control Disabled**: Cannot launch applications, open URLs, or access file paths.
-   - **Private Memory Protection**: Cannot retrieve private owner information or stored personal memories.
-   - Never fails open.
+### Security Directives
+1. **Never Fails Open**: If speaker verification is unavailable or un-enrolled, computer control and private owner memory queries are strictly blocked.
+2. **Desktop Action Confirmation**: Desktop launcher commands ALWAYS present an explicit visual confirmation card before execution.
+3. **Secret Guarding**: API keys, auth tokens, passwords, and private credentials are automatically filtered out before saving to conversation memory or logs.
 
 ---
 
-## 3. Technology Stack
+## 🛠️ 3. Technology Stack
 
-- **Backend Framework**: Python 3.11+ / FastAPI
-- **AI Orchestration**: LangChain (`langchain`, `langchain-openai`)
-- **LLM Provider**: OpenAI API (`gpt-4o-mini` / `gpt-4o`)
-- **Speaker Verification**: Local SciPy & NumPy FFT spectral cepstral embedding matching (cosine similarity)
-- **Data Science & ML**: Pandas, NumPy, Scikit-Learn, Matplotlib, Seaborn
-- **Frontend**: Vanilla HTML5, CSS3 (Modern Dark Theme), JavaScript (ES6+)
-- **Markdown & Code Syntax**: Marked.js + Highlight.js (Atom One Dark theme)
+- **Backend**: Python 3.11+ / FastAPI
+- **LLM Engine**: Google Gemini via `ChatGoogleGenerativeAI` (`langchain_google_genai`)
+- **Orchestration**: LangChain & Modular Multi-Agent System
+- **Authentication**: PyJWT & PBKDF2 SHA-256 password hashing
+- **RAG Engine**: `pypdf`, `python-docx`, `pandas`, `openpyxl`
+- **Database**: SQLite3 (`app/database/severus.db`)
+- **Frontend**: Vanilla HTML5, CSS3 Cybernetic Animations, Web Speech API
 - **Testing**: Pytest & FastAPI TestClient
 
 ---
 
-## 4. Setup & Running Locally
+## 📦 4. Setup & Running Locally
 
-### Step 1: Virtual Environment Setup
+### Step 1: Virtual Environment
 ```bash
-# Windows
 python -m venv .venv
+# Windows:
 .\.venv\Scripts\activate
-
-# Linux / macOS
-python3 -m venv .venv
+# Linux/macOS:
 source .venv/bin/activate
 ```
 
-### Step 2: Install Dependencies
+### Step 2: Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 3: Configure Environment Variables
-Create or edit `.env` in the project root:
+### Step 3: Environment Configuration (`.env`)
+Create or edit `.env` in the root folder:
 ```env
-OPENAI_API_KEY=sk-your_real_openai_api_key_here
-MODEL_NAME=gpt-4o-mini
-DEBUG=True
+GOOGLE_API_KEY=your_gemini_api_key_here
+MODEL_NAME=gemini-3.7-flash
 PORT=8001
-HOST=127.0.0.1
+HOST=0.0.0.0
+JWT_SECRET_KEY=severus_super_secret_jwt_key_2026_change_in_prod
 ```
 
-### Step 4: Run Severus Server
+### Step 4: Run Application
 ```bash
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
-Open your web browser at **[http://127.0.0.1:8001](http://127.0.0.1:8001)**.
+Open **[http://127.0.0.1:8001](http://127.0.0.1:8001)** in Google Chrome, Microsoft Edge, or Safari.
 
 ---
 
-## 5. Automated Testing
+## 🐳 5. Docker Deployment
 
-Run the full pytest suite (all 60 unit tests):
+```bash
+# Build and run containerized application
+docker-compose up --build -d
+
+# Check health probe
+curl http://localhost:8001/health
+curl http://localhost:8001/readiness
+```
+
+---
+
+## 🧪 6. Automated Testing
+
+Run the full pytest suite (all 87 unit, integration, and security tests):
 
 ```bash
 .\.venv\Scripts\python.exe -m pytest -v
 ```
 
+Run JavaScript syntax verification:
+```bash
+node --check frontend/script.js
+```
+
 ---
 
-## 6. Speaker Verification Limitations & Security Notice
+## 📄 7. License & Credits
 
-- **Local Feature Extraction**: Speaker verification extracts 32-dimensional acoustic spectral feature embeddings locally. No voice recordings are uploaded to third-party services.
-- **Data Persistence**: Only normalized float embeddings are stored in `data/owner_speaker_profile.json`. Raw audio is never saved.
-- **Security Limitations**: Local acoustic speaker verification provides an initial authorization layer but is not foolproof against high-quality voice imitation, audio replaying, or synthetic voice cloning. Dangerous desktop commands are strictly prohibited by allowlist policies and always require secondary explicit user confirmation.
+Created and developed by **Ajay** as a personal AI assistant application powered by Google Gemini and FastAPI.
