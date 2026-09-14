@@ -31,8 +31,21 @@ app.include_router(documents_router)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
+    """Liveness health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/readiness", tags=["Health"])
+async def readiness_check():
+    """Readiness probe endpoint checking database connection."""
+    try:
+        from app.database.database import get_connection
+        conn = get_connection()
+        conn.execute("SELECT 1")
+        conn.close()
+        return {"status": "ready", "database": "connected"}
+    except Exception as e:
+        return {"status": "unready", "database": str(e)}
 
 
 # Mount static frontend assets if directory exists
