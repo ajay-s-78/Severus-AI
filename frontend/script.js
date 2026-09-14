@@ -1689,6 +1689,162 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // =========================================================================
+  // USER AUTHENTICATION & JWT CLIENT HANDLERS (PHASE 13)
+  // =========================================================================
+  const authBtn = document.getElementById('authBtn');
+  const authBtnText = document.getElementById('authBtnText');
+  const authModalOverlay = document.getElementById('authModalOverlay');
+  const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
+  const closeAuthFooterBtn = document.getElementById('closeAuthFooterBtn');
+  const showLoginTabBtn = document.getElementById('showLoginTabBtn');
+  const showRegisterTabBtn = document.getElementById('showRegisterTabBtn');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const authAccountCard = document.getElementById('authAccountCard');
+  const authLoggedInUser = document.getElementById('authLoggedInUser');
+  const authLoggedInRole = document.getElementById('authLoggedInRole');
+  const authMessage = document.getElementById('authMessage');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  function getAuthToken() {
+    return localStorage.getItem('severus_jwt_token') || '';
+  }
+
+  function setAuthToken(token) {
+    if (token) {
+      localStorage.setItem('severus_jwt_token', token);
+    } else {
+      localStorage.removeItem('severus_jwt_token');
+    }
+  }
+
+  async function checkAuthSession() {
+    const token = getAuthToken();
+    if (!token) {
+      if (authBtnText) authBtnText.textContent = 'Login';
+      if (authAccountCard) authAccountCard.classList.add('hidden');
+      if (logoutBtn) logoutBtn.classList.add('hidden');
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success' && data.user) {
+        if (authBtnText) authBtnText.textContent = `@${data.user.username}`;
+        if (authLoggedInUser) authLoggedInUser.textContent = data.user.username;
+        if (authLoggedInRole) authLoggedInRole.textContent = `Role: ${data.user.role || 'user'}`;
+        if (authAccountCard) authAccountCard.classList.remove('hidden');
+        if (logoutBtn) logoutBtn.classList.remove('hidden');
+      } else {
+        setAuthToken('');
+        if (authBtnText) authBtnText.textContent = 'Login';
+        if (authAccountCard) authAccountCard.classList.add('hidden');
+        if (logoutBtn) logoutBtn.classList.add('hidden');
+      }
+    } catch (e) {
+      console.warn('Auth check error:', e);
+    }
+  }
+
+  if (authBtn && authModalOverlay) {
+    authBtn.addEventListener('click', () => {
+      authModalOverlay.classList.remove('hidden');
+      checkAuthSession();
+    });
+    if (closeAuthModalBtn) closeAuthModalBtn.addEventListener('click', () => authModalOverlay.classList.add('hidden'));
+    if (closeAuthFooterBtn) closeAuthFooterBtn.addEventListener('click', () => authModalOverlay.classList.add('hidden'));
+
+    if (showLoginTabBtn && showRegisterTabBtn) {
+      showLoginTabBtn.addEventListener('click', () => {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        showLoginTabBtn.style.background = 'rgba(56, 189, 248, 0.2)';
+        showRegisterTabBtn.style.background = 'transparent';
+      });
+      showRegisterTabBtn.addEventListener('click', () => {
+        registerForm.classList.remove('hidden');
+        loginForm.classList.add('hidden');
+        showRegisterTabBtn.style.background = 'rgba(56, 189, 248, 0.2)';
+        showLoginTabBtn.style.background = 'transparent';
+      });
+    }
+
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await res.json();
+          if (res.ok && data.access_token) {
+            setAuthToken(data.access_token);
+            authMessage.classList.remove('hidden');
+            authMessage.innerHTML = `<i class="fa-solid fa-circle-check"></i> Welcome back, ${escapeHtml(data.user.username)}!`;
+            checkAuthSession();
+            setTimeout(() => authModalOverlay.classList.add('hidden'), 1000);
+          } else {
+            authMessage.classList.remove('hidden');
+            authMessage.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(data.detail || 'Login failed')}`;
+          }
+        } catch (err) {
+          authMessage.classList.remove('hidden');
+          authMessage.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Network error`;
+        }
+      });
+    }
+
+    if (registerForm) {
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const role = document.getElementById('regRole').value;
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password, role })
+          });
+          const data = await res.json();
+          if (res.ok && data.access_token) {
+            setAuthToken(data.access_token);
+            authMessage.classList.remove('hidden');
+            authMessage.innerHTML = `<i class="fa-solid fa-circle-check"></i> Account created for ${escapeHtml(data.user.username)}!`;
+            checkAuthSession();
+            setTimeout(() => authModalOverlay.classList.add('hidden'), 1000);
+          } else {
+            authMessage.classList.remove('hidden');
+            authMessage.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(data.detail || 'Registration failed')}`;
+          }
+        } catch (err) {
+          authMessage.classList.remove('hidden');
+          authMessage.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Network error`;
+        }
+      });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        setAuthToken('');
+        checkAuthSession();
+        authMessage.classList.remove('hidden');
+        authMessage.innerHTML = '<i class="fa-solid fa-circle-check"></i> Logged out.';
+        setTimeout(() => authModalOverlay.classList.add('hidden'), 800);
+      });
+    }
+  }
+
+  checkAuthSession();
+
   // Initial speaker status check on app load
   checkSpeakerEnrollmentStatus();
 });

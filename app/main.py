@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.routes.chat import router as chat_router
+from app.routes.auth import router as auth_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -23,6 +24,7 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(chat_router)
+app.include_router(auth_router)
 
 
 @app.get("/health", tags=["Health"])

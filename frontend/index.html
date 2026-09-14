@@ -79,6 +79,9 @@
           <span class="bar-title" id="barChatTitle">SEVERUS ASSISTANT</span>
         </div>
         <div class="bar-right">
+          <button class="btn-header-action" id="authBtn" title="User Authentication & Account Management">
+            <i class="fa-solid fa-user-lock"></i> <span class="btn-text" id="authBtnText">Login</span>
+          </button>
           <button class="btn-header-action" id="voiceEnrollBtn" title="Owner Speaker Authorization">
             <i class="fa-solid fa-user-shield"></i> <span class="btn-text">Voice Identity</span>
           </button>
@@ -510,6 +513,77 @@
         <button class="btn-secondary" id="analyticsCloseBtn">
           Close
         </button>
+      </div>
+    </div>
+  <!-- User Authentication Modal (Phase 13) -->
+  <div class="modal-overlay hidden" id="authModalOverlay">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-user-shield"></i> User Authentication</h3>
+        <button class="modal-close-btn" id="closeAuthModalBtn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="authAccountCard" class="enrollment-status-card hidden" style="margin-bottom: 16px;">
+          <i class="fa-solid fa-circle-user status-icon"></i>
+          <div>
+            <h4 id="authLoggedInUser">Logged In</h4>
+            <p id="authLoggedInRole">Role: User</p>
+          </div>
+        </div>
+
+        <div id="authTabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button class="btn-secondary" id="showLoginTabBtn" style="flex: 1; background: rgba(56, 189, 248, 0.2);"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+          <button class="btn-secondary" id="showRegisterTabBtn" style="flex: 1;"><i class="fa-solid fa-user-plus"></i> Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm">
+          <div class="form-group">
+            <label><i class="fa-solid fa-user"></i> Username or Email:</label>
+            <input type="text" id="loginUsername" placeholder="Enter username or email" required class="analytics-select">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label><i class="fa-solid fa-key"></i> Password:</label>
+            <input type="password" id="loginPassword" placeholder="Enter password" required class="analytics-select">
+          </div>
+          <button type="submit" class="btn-primary" id="loginSubmitBtn" style="width: 100%; margin-top: 16px; justify-content: center;">
+            <i class="fa-solid fa-right-to-bracket"></i> Login to SEVERUS
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="hidden">
+          <div class="form-group">
+            <label><i class="fa-solid fa-user"></i> Username:</label>
+            <input type="text" id="regUsername" placeholder="Choose a username" required class="analytics-select">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label><i class="fa-solid fa-envelope"></i> Email Address:</label>
+            <input type="email" id="regEmail" placeholder="user@example.com" required class="analytics-select">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label><i class="fa-solid fa-key"></i> Password:</label>
+            <input type="password" id="regPassword" placeholder="Minimum 6 characters" required minlength="6" class="analytics-select">
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label><i class="fa-solid fa-user-gear"></i> Role:</label>
+            <select id="regRole" class="analytics-select">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary" id="regSubmitBtn" style="width: 100%; margin-top: 16px; justify-content: center;">
+            <i class="fa-solid fa-user-plus"></i> Create Account
+          </button>
+        </form>
+
+        <div id="authMessage" class="analytics-status hidden" style="margin-top: 12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary hidden" id="logoutBtn" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+        <button class="btn-secondary" id="closeAuthFooterBtn">Close</button>
       </div>
     </div>
   </div>
