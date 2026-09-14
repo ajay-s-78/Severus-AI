@@ -7,6 +7,7 @@ from app.routes.chat import router as chat_router
 from app.routes.auth import router as auth_router
 from app.routes.documents import router as documents_router
 from app.core.config import settings
+from app.core.middleware import SecurityAndMonitoringMiddleware
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -14,7 +15,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for frontend integration
+# Enable CORS and Security monitoring middleware
+app.add_middleware(SecurityAndMonitoringMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
