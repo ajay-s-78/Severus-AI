@@ -1060,12 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         showTyping(false);
-        setJarvisStatus('ready', 'JARVIS: Ready');
+        setJarvisStatus('ready', 'SEVERUS: Ready');
         appendAIMessage(`⚠️ **Error executing ML workflow:** ${err.message}`);
       }
     });
   }
-});
+
   // ==========================================================================
   // ANALYTICS & VISUALIZATION WORKSPACE EVENT HANDLERS
   // ==========================================================================

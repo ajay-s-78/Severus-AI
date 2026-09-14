@@ -8,7 +8,7 @@ from app.core.config import settings
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="SEVERUS - Data Science AI Assistant powered by FastAPI, LangChain, and OpenAI API",
+    description="SEVERUS - Data Science AI Assistant powered by FastAPI, LangChain, and Google Gemini API",
     version="1.0.0"
 )
 
