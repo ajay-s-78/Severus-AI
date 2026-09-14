@@ -234,7 +234,8 @@ def test_execute_action_endpoint_success(mock_web_open):
     response = client.post("/api/execute-action", json={
         "action_type": "open_url",
         "target": "https://python.org",
-        "confirmed": True
+        "confirmed": True,
+        "speaker_auth": "AUTHORIZED_OWNER"
     })
 
     assert response.status_code == 200
@@ -440,7 +441,7 @@ def test_jarvis_orchestrate_computer_control_safety():
     import asyncio
     from app.services.jarvis_orchestrator import jarvis_orchestrator
 
-    result = asyncio.run(jarvis_orchestrator.orchestrate(session_id="s1", message="open calculator"))
+    result = asyncio.run(jarvis_orchestrator.orchestrate(session_id="s1", message="open calculator", speaker_status="AUTHORIZED_OWNER"))
     assert result["intent"] == "computer_control"
     assert result["status_text"] == "Awaiting Confirmation"
     assert result["action_required"]["action_type"] == "open_app"
@@ -831,3 +832,163 @@ def test_analytics_correlation_analysis():
     assert "matrix" in result
     assert "Age" in result["matrix"]
     assert "Salary" in result["matrix"]["Age"]
+
+
+# =========================================================================
+# PHASE 11: PERSONAL JARVIS SECURITY & SPEAKER AUTHORIZATION TESTS
+# =========================================================================
+
+def test_speaker_enrollment_and_status_endpoints():
+    """Verify owner speaker enrollment, status check, and profile clearance."""
+    from app.services.speaker_verification_service import speaker_verification_service
+
+    # Clear profile before starting
+    speaker_verification_service.clear_speaker_profile()
+    status_res = client.get("/api/speaker/status")
+    assert status_res.status_code == 200
+    assert status_res.json()["enrolled"] is False
+
+    # Enroll owner speaker with sample base64 WAV
+    sample_b64 = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
+    enroll_res = client.post("/api/speaker/enroll", json={"audio_samples": [sample_b64]})
+    assert enroll_res.status_code == 200
+    assert enroll_res.json()["status"] == "success"
+    assert enroll_res.json()["enrolled"] is True
+
+    # Re-check status
+    status_res2 = client.get("/api/speaker/status")
+    assert status_res2.status_code == 200
+    assert status_res2.json()["enrolled"] is True
+
+    # Clean up profile
+    clear_res = client.delete("/api/speaker/enroll")
+    assert clear_res.status_code == 200
+    assert clear_res.json()["enrolled"] is False
+
+
+def test_unauthorized_speaker_cannot_execute_computer_control():
+    """Verify unauthorized speaker is blocked from executing computer control desktop actions."""
+    # 1. Chat intent check with unauthorized status
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "open notepad",
+            "speaker_auth": "UNAUTHORIZED_SPEAKER"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "Access Restricted" in data["response"]
+    assert data["action_required"] is None
+    assert data["speaker_status"] == "UNAUTHORIZED_SPEAKER"
+
+    # 2. Direct execute endpoint check with unauthorized status
+    exec_res = client.post(
+        "/api/execute-action",
+        json={
+            "action_type": "open_app",
+            "target": "notepad",
+            "confirmed": True,
+            "speaker_auth": "UNAUTHORIZED_SPEAKER"
+        }
+    )
+    assert exec_res.status_code == 200
+    exec_data = exec_res.json()
+    assert exec_data["status"] == "blocked"
+    assert "restricted to the verified owner" in exec_data["message"]
+
+
+def test_verification_unavailable_cannot_execute_computer_control():
+    """Verify computer control fails safe when speaker verification is unavailable."""
+    from app.services.speaker_verification_service import speaker_verification_service
+    speaker_verification_service.clear_speaker_profile()
+
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "open https://google.com"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "Access Restricted" in data["response"]
+    assert data["action_required"] is None
+    assert data["speaker_status"] == "VERIFICATION_UNAVAILABLE"
+
+
+def test_authorized_speaker_can_reach_permitted_computer_control():
+    """Verify authorized owner speaker reaches confirmation for permitted desktop actions."""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "Severus, open notepad",
+            "speaker_auth": "AUTHORIZED_OWNER"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["speaker_status"] == "AUTHORIZED_OWNER"
+    assert data["action_required"] is not None
+    assert data["action_required"]["action_type"] == "open_app"
+    assert data["action_required"]["target"] == "notepad"
+
+
+def test_sensitive_action_requires_confirmation():
+    """Verify sensitive desktop actions require explicit confirmation even for verified owner."""
+    exec_res = client.post(
+        "/api/execute-action",
+        json={
+            "action_type": "open_app",
+            "target": "notepad",
+            "confirmed": False,
+            "speaker_auth": "AUTHORIZED_OWNER"
+        }
+    )
+    assert exec_res.status_code == 200
+    data = exec_res.json()
+    assert data["status"] == "confirmation_required"
+
+
+def test_unauthorized_user_cannot_retrieve_private_owner_memory():
+    """Verify unauthorized user cannot query or retrieve private owner memories."""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "What do you know about Ajay?",
+            "speaker_auth": "UNAUTHORIZED_SPEAKER"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "Privacy Restriction" in data["response"]
+    assert "verified owner" in data["response"]
+
+
+@patch("app.routes.chat.ai_service.get_response", new_callable=AsyncMock)
+def test_authorized_owner_can_retrieve_personal_memory(mock_get_response):
+    """Verify authorized owner can ask about their personal memory."""
+    mock_get_response.return_value = "You prefer Python and your project is Severus."
+
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "What do you remember about me?",
+            "speaker_auth": "AUTHORIZED_OWNER"
+        }
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["speaker_status"] == "AUTHORIZED_OWNER"
+    assert "Severus" in data["response"]
+
+
+def test_secret_filtering_prevents_saving_credentials():
+    """Verify secrets and API keys are blocked from memory storage."""
+    from app.services.memory_service import memory_service
+
+    assert memory_service.contains_secret("sk-1234567890abcdef1234567890") is True
+    assert memory_service.contains_secret("AIzaSy1234567890abcdef1234567890abcdef") is True
+    assert memory_service.contains_secret("bearer token_abc123") is True
+
+    save_result = memory_service.save_memory("test_secret", "sk-1234567890abcdef1234567890")
+    assert save_result is False

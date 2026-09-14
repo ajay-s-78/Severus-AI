@@ -1249,4 +1249,262 @@ textarea {
 .ml-recommendation-box.hidden {
   display: none;
 }
+/* ==========================================================================
+   ANALYTICS & VISUALIZATION WORKSPACE
+   ========================================================================== */
+
+.analytics-modal {
+  max-width: 900px;
+  width: 95%;
+}
+
+.analytics-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 18px;
+}
+
+.analytics-status {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: rgba(100, 100, 255, 0.08);
+  font-size: 0.9rem;
+}
+
+.analytics-results,
+.analytics-chart-section {
+  margin-top: 20px;
+}
+
+.analytics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.analytics-stat-card {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  background: rgba(128, 128, 128, 0.05);
+  text-align: center;
+}
+
+.analytics-stat-card i {
+  display: block;
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+
+.analytics-stat-card span {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.analytics-stat-card strong {
+  font-size: 1.2rem;
+}
+
+.analytics-section,
+.analytics-chart-section {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  margin-bottom: 18px;
+}
+
+.analytics-section h4,
+.analytics-chart-section h4 {
+  margin: 0 0 14px;
+}
+
+.analytics-insight {
+  display: flex;
+  gap: 10px;
+  padding: 9px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.analytics-insight i {
+  margin-top: 4px;
+}
+
+.analytics-chart-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.chart-result {
+  margin-top: 20px;
+  text-align: center;
+  overflow: auto;
+}
+
+.chart-result img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+@media (max-width: 700px) {
+  .analytics-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .analytics-chart-controls {
+    grid-template-columns: 1fr;
+  }
+}
+/* ==========================================================================
+   HEADER ACTION BUTTON LAYOUT FIX
+   ========================================================================== */
+
+.bar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.btn-header-action {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* ==========================================================================
+   ANALYTICS MODAL SCROLL FIX
+   ========================================================================== */
+
+.analytics-modal {
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.analytics-modal .modal-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+  scrollbar-width: thin;
+}
+
+.analytics-modal .modal-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.analytics-modal .modal-body::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: var(--border-color);
+}
+
+/* ==========================================================================
+   PHASE 11: SPEAKER AUTHORIZATION & VOICE SECURITY STYLES
+   ========================================================================== */
+
+.system-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-light);
+}
+
+.voice-status-row {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.voice-status-row.authorized {
+  color: #10b981;
+}
+
+.voice-status-row.chat-only {
+  color: #f59e0b;
+}
+
+.enrollment-status-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.enrollment-status-card .status-icon {
+  font-size: 1.8rem;
+  color: var(--accent-blue);
+}
+
+.enrollment-status-card.enrolled .status-icon {
+  color: #10b981;
+}
+
+.enrollment-status-card h4 {
+  font-size: 0.95rem;
+  margin: 0 0 4px 0;
+  color: var(--text-main);
+}
+
+.enrollment-status-card p {
+  font-size: 0.82rem;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.voice-record-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.voice-record-controls .btn-secondary.recording {
+  background: #ef4444;
+  color: #fff;
+  border-color: transparent;
+  animation: pulse 1.5s infinite;
+}
+
+.sample-status {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.help-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 4px 0 8px 0;
+}
+
 

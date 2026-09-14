@@ -28,6 +28,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const jarvisStatusDot = document.getElementById('jarvisStatusDot');
   const jarvisStatusText = document.getElementById('jarvisStatusText');
 
+  // Voice Status Indicator Elements
+  const voiceStatusRow = document.getElementById('voiceStatusRow');
+  const voiceStatusText = document.getElementById('voiceStatusText');
+
+  function setVoiceStatus(status) {
+    if (!voiceStatusRow || !voiceStatusText) return;
+    voiceStatusRow.className = 'status-row voice-status-row';
+    if (status === 'AUTHORIZED_OWNER') {
+      voiceStatusRow.classList.add('authorized');
+      voiceStatusText.textContent = 'Voice: Authorized Owner';
+    } else {
+      voiceStatusRow.classList.add('chat-only');
+      voiceStatusText.textContent = 'Voice: Chat Only Mode';
+    }
+  }
+
   function setJarvisStatus(state, customLabel = null) {
     if (!jarvisStatusText || !jarvisStatusDot) return;
     jarvisStatusDot.className = 'status-dot';
@@ -35,27 +51,27 @@ document.addEventListener('DOMContentLoaded', () => {
     switch (state) {
       case 'thinking':
         jarvisStatusDot.classList.add('thinking');
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Thinking...';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Thinking...';
         break;
       case 'searching':
         jarvisStatusDot.classList.add('searching');
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Searching Web...';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Searching Web...';
         break;
       case 'vision':
         jarvisStatusDot.classList.add('vision');
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Analyzing Image...';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Analyzing Image...';
         break;
       case 'awaiting':
         jarvisStatusDot.classList.add('awaiting');
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Awaiting Confirmation...';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Awaiting Confirmation...';
         break;
       case 'speaking':
         jarvisStatusDot.classList.add('speaking');
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Speaking...';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Speaking...';
         break;
       case 'ready':
       default:
-        jarvisStatusText.textContent = customLabel || 'JARVIS: Ready';
+        jarvisStatusText.textContent = customLabel || 'SEVERUS: Ready';
         break;
     }
   }
@@ -576,6 +592,10 @@ document.addEventListener('DOMContentLoaded', () => {
       showTyping(false);
       sendBtn.disabled = false;
 
+      if (data.speaker_status) {
+        setVoiceStatus(data.speaker_status);
+      }
+
       if (data.action_required) {
         setJarvisStatus('awaiting');
       } else {
@@ -1046,4 +1066,476 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+  // ==========================================================================
+  // ANALYTICS & VISUALIZATION WORKSPACE EVENT HANDLERS
+  // ==========================================================================
+  const analyticsWorkspaceBtn = document.getElementById('analyticsWorkspaceBtn');
+  const analyticsModalOverlay = document.getElementById('analyticsModalOverlay');
+  const closeAnalyticsModalBtn = document.getElementById('closeAnalyticsModalBtn');
+  const analyticsCloseBtn = document.getElementById('analyticsCloseBtn');
+  const analyticsResetBtn = document.getElementById('analyticsResetBtn');
 
+  const analyticsFileInput = document.getElementById('analyticsFileInput');
+  const analyticsAnalyzeBtn = document.getElementById('analyticsAnalyzeBtn');
+  const analyticsGenerateChartBtn = document.getElementById('analyticsGenerateChartBtn');
+
+  const analyticsStatus = document.getElementById('analyticsStatus');
+  const analyticsResults = document.getElementById('analyticsResults');
+  const analyticsChartSection = document.getElementById('analyticsChartSection');
+  const analyticsChartResult = document.getElementById('analyticsChartResult');
+  const analyticsChartImage = document.getElementById('analyticsChartImage');
+
+  const analyticsChartType = document.getElementById('analyticsChartType');
+  const analyticsXColumn = document.getElementById('analyticsXColumn');
+  const analyticsYColumn = document.getElementById('analyticsYColumn');
+
+  let analyticsCurrentFile = null;
+  let analyticsColumns = [];
+
+  // Open Analytics Modal
+  if (analyticsWorkspaceBtn && analyticsModalOverlay) {
+    analyticsWorkspaceBtn.addEventListener('click', () => {
+      analyticsModalOverlay.classList.remove('hidden');
+    });
+  }
+
+  // Close Analytics Modal
+  const closeAnalyticsModal = () => {
+    if (analyticsModalOverlay) {
+      analyticsModalOverlay.classList.add('hidden');
+    }
+  };
+
+  if (closeAnalyticsModalBtn) {
+    closeAnalyticsModalBtn.addEventListener('click', closeAnalyticsModal);
+  }
+
+  if (analyticsCloseBtn) {
+    analyticsCloseBtn.addEventListener('click', closeAnalyticsModal);
+  }
+
+  if (analyticsModalOverlay) {
+    analyticsModalOverlay.addEventListener('click', (e) => {
+      if (e.target === analyticsModalOverlay) {
+        closeAnalyticsModal();
+      }
+    });
+  }
+
+  // Dataset selection
+  if (analyticsFileInput) {
+    analyticsFileInput.addEventListener('change', () => {
+      const file = analyticsFileInput.files[0];
+
+      if (!file) {
+        analyticsCurrentFile = null;
+        return;
+      }
+
+      analyticsCurrentFile = file;
+
+      if (analyticsStatus) {
+        analyticsStatus.classList.remove('hidden');
+        analyticsStatus.innerHTML =
+          `<i class="fa-solid fa-file-circle-check"></i> Selected: ${escapeHtml(file.name)}`;
+      }
+    });
+  }
+
+  // Analyze Dataset
+  if (analyticsAnalyzeBtn) {
+    analyticsAnalyzeBtn.addEventListener('click', async () => {
+      const fileToAnalyze = analyticsCurrentFile || currentCsvFile;
+
+      if (!fileToAnalyze) {
+        alert('Please select a dataset file first.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToAnalyze);
+
+      try {
+        analyticsAnalyzeBtn.disabled = true;
+        analyticsAnalyzeBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+
+        if (analyticsStatus) {
+          analyticsStatus.classList.remove('hidden');
+          analyticsStatus.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Running advanced analytics...';
+        }
+
+        const res = await fetch('/api/analytics/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.detail || 'Analytics failed.');
+        }
+
+        const analysis = data.analysis;
+
+        // Dataset shape
+        if (document.getElementById('analyticsRows')) {
+          document.getElementById('analyticsRows').textContent =
+            analysis.dataset_shape?.rows ?? '-';
+        }
+
+        if (document.getElementById('analyticsColumns')) {
+          document.getElementById('analyticsColumns').textContent =
+            analysis.dataset_shape?.columns ?? '-';
+        }
+
+        // Duplicate rows
+        if (document.getElementById('analyticsDuplicates')) {
+          document.getElementById('analyticsDuplicates').textContent =
+            analysis.duplicate_rows ?? '-';
+        }
+
+        // Missing values
+        if (document.getElementById('analyticsMissing')) {
+          const missing = analysis.missing_values || {};
+          const totalMissing = Object.values(missing).reduce(
+            (sum, item) => {
+              if (typeof item === 'number') return sum + item;
+              if (typeof item === 'object' && item !== null) {
+                return sum + Number(item.count || 0);
+              }
+              return sum;
+            },
+            0
+          );
+
+          document.getElementById('analyticsMissing').textContent =
+            totalMissing;
+        }
+
+        // Insights
+        const insightsContainer =
+          document.getElementById('analyticsInsights');
+
+        if (insightsContainer) {
+          const insights = analysis.insights || [];
+
+          if (Array.isArray(insights) && insights.length > 0) {
+            insightsContainer.innerHTML = insights
+              .map(
+                insight =>
+                  `<div class="analytics-insight">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>${escapeHtml(String(insight))}</span>
+                  </div>`
+              )
+              .join('');
+          } else {
+            insightsContainer.innerHTML =
+              '<div class="analytics-insight">No additional insights detected.</div>';
+          }
+        }
+
+        // Extract columns
+        analyticsColumns = [
+          ...(analysis.numeric_columns || []),
+          ...(analysis.categorical_columns || [])
+        ];
+
+        populateAnalyticsColumns();
+
+        if (analyticsResults) {
+          analyticsResults.classList.remove('hidden');
+        }
+
+        if (analyticsChartSection) {
+          analyticsChartSection.classList.remove('hidden');
+        }
+
+        if (analyticsStatus) {
+          analyticsStatus.innerHTML =
+            '<i class="fa-solid fa-circle-check"></i> Analysis completed successfully.';
+        }
+
+      } catch (err) {
+        if (analyticsStatus) {
+          analyticsStatus.classList.remove('hidden');
+          analyticsStatus.innerHTML =
+            `<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(err.message)}`;
+        }
+
+        alert(`Analytics Error: ${err.message}`);
+
+      } finally {
+        analyticsAnalyzeBtn.disabled = false;
+        analyticsAnalyzeBtn.innerHTML =
+          '<i class="fa-solid fa-magnifying-glass-chart"></i> Analyze Dataset';
+      }
+    });
+  }
+
+  // Populate X/Y column dropdowns
+  function populateAnalyticsColumns() {
+    if (!analyticsXColumn || !analyticsYColumn) return;
+
+    analyticsXColumn.innerHTML =
+      '<option value="">Auto / Not Required</option>';
+
+    analyticsYColumn.innerHTML =
+      '<option value="">Auto / Not Required</option>';
+
+    analyticsColumns.forEach(column => {
+      const xOption = document.createElement('option');
+      xOption.value = column;
+      xOption.textContent = column;
+      analyticsXColumn.appendChild(xOption);
+
+      const yOption = document.createElement('option');
+      yOption.value = column;
+      yOption.textContent = column;
+      analyticsYColumn.appendChild(yOption);
+    });
+  }
+
+  // Generate Chart
+  if (analyticsGenerateChartBtn) {
+    analyticsGenerateChartBtn.addEventListener('click', async () => {
+      const fileToAnalyze = analyticsCurrentFile || currentCsvFile;
+
+      if (!fileToAnalyze) {
+        alert('Please select a dataset file first.');
+        return;
+      }
+
+      const chartType = analyticsChartType
+        ? analyticsChartType.value
+        : 'histogram';
+
+      const xColumn = analyticsXColumn
+        ? analyticsXColumn.value
+        : '';
+
+      const yColumn = analyticsYColumn
+        ? analyticsYColumn.value
+        : '';
+
+      const formData = new FormData();
+
+      formData.append('file', fileToAnalyze);
+      formData.append('chart_type', chartType);
+
+      if (xColumn) {
+        formData.append('x_column', xColumn);
+      }
+
+      if (yColumn) {
+        formData.append('y_column', yColumn);
+      }
+
+      try {
+        analyticsGenerateChartBtn.disabled = true;
+        analyticsGenerateChartBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+
+        const res = await fetch('/api/analytics/chart', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.status !== 'success') {
+          throw new Error(data.detail || 'Chart generation failed.');
+        }
+
+        const chart = data.chart;
+
+        if (chart.image_base64 && analyticsChartImage) {
+          analyticsChartImage.src =
+            `data:image/png;base64,${chart.image_base64}`;
+
+          if (analyticsChartResult) {
+            analyticsChartResult.classList.remove('hidden');
+          }
+        }
+
+      } catch (err) {
+        alert(`Chart Error: ${err.message}`);
+
+      } finally {
+        analyticsGenerateChartBtn.disabled = false;
+        analyticsGenerateChartBtn.innerHTML =
+          '<i class="fa-solid fa-chart-line"></i> Generate Chart';
+      }
+    });
+  }
+
+  // Reset Analytics Workspace
+  if (analyticsResetBtn) {
+    analyticsResetBtn.addEventListener('click', () => {
+      analyticsCurrentFile = null;
+      analyticsColumns = [];
+
+      if (analyticsFileInput) {
+        analyticsFileInput.value = '';
+      }
+
+      if (analyticsResults) {
+        analyticsResults.classList.add('hidden');
+      }
+
+      if (analyticsChartSection) {
+        analyticsChartSection.classList.add('hidden');
+      }
+
+      if (analyticsChartResult) {
+        analyticsChartResult.classList.add('hidden');
+      }
+
+      if (analyticsChartImage) {
+        analyticsChartImage.src = '';
+      }
+
+      if (analyticsStatus) {
+        analyticsStatus.classList.add('hidden');
+        analyticsStatus.innerHTML = '';
+      }
+
+      populateAnalyticsColumns();
+    });
+  }
+
+  // =========================================================================
+  // OWNER VOICE IDENTITY & SPEAKER ENROLLMENT MODAL HANDLERS
+  // =========================================================================
+  const voiceEnrollBtn = document.getElementById('voiceEnrollBtn');
+  const voiceEnrollModalOverlay = document.getElementById('voiceEnrollModalOverlay');
+  const closeVoiceEnrollModalBtn = document.getElementById('closeVoiceEnrollModalBtn');
+  const closeVoiceModalFooterBtn = document.getElementById('closeVoiceModalFooterBtn');
+  const clearVoiceProfileBtn = document.getElementById('clearVoiceProfileBtn');
+  const saveVoiceEnrollmentBtn = document.getElementById('saveVoiceEnrollmentBtn');
+
+  const enrollModalStatusIcon = document.getElementById('enrollModalStatusIcon');
+  const enrollModalStatusTitle = document.getElementById('enrollModalStatusTitle');
+  const enrollModalStatusDesc = document.getElementById('enrollModalStatusDesc');
+
+  const recordVoiceSampleBtn = document.getElementById('recordVoiceSampleBtn');
+  const recordSampleStatusText = document.getElementById('recordSampleStatusText');
+  const voiceSampleFileInput = document.getElementById('voiceSampleFileInput');
+
+  let recordedAudioSamples = [];
+
+  async function checkSpeakerEnrollmentStatus() {
+    try {
+      const res = await fetch('/api/speaker/status');
+      const data = await res.json();
+      if (res.ok && data.enrolled) {
+        if (enrollModalStatusIcon) enrollModalStatusIcon.className = 'fa-solid fa-user-check status-icon';
+        if (enrollModalStatusTitle) enrollModalStatusTitle.textContent = 'Owner Voice Profile Enrolled';
+        if (enrollModalStatusDesc) enrollModalStatusDesc.textContent = `Enrolled with ${data.num_samples} sample(s). Full computer control permitted for verified voice.`;
+        if (clearVoiceProfileBtn) clearVoiceProfileBtn.classList.remove('hidden');
+        setVoiceStatus('AUTHORIZED_OWNER');
+      } else {
+        if (enrollModalStatusIcon) enrollModalStatusIcon.className = 'fa-solid fa-user-slash status-icon';
+        if (enrollModalStatusTitle) enrollModalStatusTitle.textContent = 'Voice Profile Not Enrolled';
+        if (enrollModalStatusDesc) enrollModalStatusDesc.textContent = 'Record or upload owner voice sample to enable full voice computer control.';
+        if (clearVoiceProfileBtn) clearVoiceProfileBtn.classList.add('hidden');
+        setVoiceStatus('VERIFICATION_UNAVAILABLE');
+      }
+    } catch (err) {
+      console.warn('Failed to check speaker status:', err);
+    }
+  }
+
+  if (voiceEnrollBtn && voiceEnrollModalOverlay) {
+    voiceEnrollBtn.addEventListener('click', () => {
+      voiceEnrollModalOverlay.classList.remove('hidden');
+      checkSpeakerEnrollmentStatus();
+    });
+
+    if (closeVoiceEnrollModalBtn) {
+      closeVoiceEnrollModalBtn.addEventListener('click', () => {
+        voiceEnrollModalOverlay.classList.add('hidden');
+      });
+    }
+
+    if (closeVoiceModalFooterBtn) {
+      closeVoiceModalFooterBtn.addEventListener('click', () => {
+        voiceEnrollModalOverlay.classList.add('hidden');
+      });
+    }
+
+    if (clearVoiceProfileBtn) {
+      clearVoiceProfileBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear the enrolled owner voice profile?')) {
+          try {
+            const res = await fetch('/api/speaker/enroll', { method: 'DELETE' });
+            if (res.ok) {
+              alert('Owner speaker profile cleared.');
+              checkSpeakerEnrollmentStatus();
+            }
+          } catch (err) {
+            alert('Failed to clear profile.');
+          }
+        }
+      });
+    }
+
+    if (saveVoiceEnrollmentBtn) {
+      saveVoiceEnrollmentBtn.addEventListener('click', async () => {
+        let samplesToEnroll = [...recordedAudioSamples];
+
+        if (voiceSampleFileInput && voiceSampleFileInput.files.length > 0) {
+          const file = voiceSampleFileInput.files[0];
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const base64Audio = e.target.result;
+            samplesToEnroll.push(base64Audio);
+            await submitEnrollment(samplesToEnroll);
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        if (samplesToEnroll.length === 0) {
+          // Default synthetic sample enrollment if no manual recording attached
+          samplesToEnroll.push("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        }
+
+        await submitEnrollment(samplesToEnroll);
+      });
+    }
+
+    async function submitEnrollment(samples) {
+      try {
+        saveVoiceEnrollmentBtn.disabled = true;
+        saveVoiceEnrollmentBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enrolling...';
+
+        const res = await fetch('/api/speaker/enroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio_samples: samples })
+        });
+        const data = await res.json();
+        saveVoiceEnrollmentBtn.disabled = false;
+        saveVoiceEnrollmentBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enroll Owner Voice';
+
+        if (res.ok && data.status === 'success') {
+          alert('Owner voice profile successfully enrolled!');
+          checkSpeakerEnrollmentStatus();
+          voiceEnrollModalOverlay.classList.add('hidden');
+        } else {
+          alert(data.detail || data.message || 'Enrollment failed.');
+        }
+      } catch (err) {
+        saveVoiceEnrollmentBtn.disabled = false;
+        saveVoiceEnrollmentBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enroll Owner Voice';
+        alert('Network error during voice enrollment.');
+      }
+    }
+  }
+
+  // Initial speaker status check on app load
+  checkSpeakerEnrollmentStatus();
+});

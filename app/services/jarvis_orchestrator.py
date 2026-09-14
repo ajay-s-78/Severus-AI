@@ -1,10 +1,12 @@
 import logging
+import re
 from typing import Dict, Any, Optional
 from app.services.ai_service import ai_service
 from app.services.search_service import search_service
 from app.services.computer_control_service import computer_control_service
 from app.services.memory_service import memory_service
 from app.services.analytics_service import analytics_service
+from app.services.speaker_verification_service import speaker_verification_service
 
 logger = logging.getLogger("severus.jarvis_orchestrator")
 
@@ -12,23 +14,31 @@ logger = logging.getLogger("severus.jarvis_orchestrator")
 class JarvisOrchestrator:
     """
     Advanced JARVIS Assistant Orchestration Service for Severus-AI.
-    Classifies user intent, routes requests to appropriate sub-services,
-    supports combined workflows (Vision + Web Search + Memory), and formats concise responses.
+    Classifies user intent, enforces speaker identity authorization,
+    routes requests to appropriate sub-services, supports combined workflows,
+    and formats concise responses.
     """
+
+    def strip_wake_word(self, message: str) -> str:
+        """Strips leading assistant wake words like 'Severus,' or 'Hey Severus'."""
+        if not message:
+            return ""
+        return re.sub(r'^(hey\s+severus|severus)[,\s:]*', '', message, flags=re.IGNORECASE).strip()
 
     def classify_intent(self, message: str, has_image: bool = False) -> Dict[str, Any]:
         """
         Classifies user request intent and identifies required capabilities.
         """
-        msg_lower = message.lower().strip() if message else ""
+        clean_msg = self.strip_wake_word(message)
+        msg_lower = clean_msg.lower() if clean_msg else ""
 
-        needs_search = search_service.should_search(message) if message else False
-        action_intent = computer_control_service.detect_action_intent(message) if message else None
+        needs_search = search_service.should_search(clean_msg) if clean_msg else False
+        action_intent = computer_control_service.detect_action_intent(clean_msg) if clean_msg else None
 
         is_memory_query = any(
             kw in msg_lower for kw in [
                 "remember that", "my name is", "i prefer", "what do you remember",
-                "my project", "stored memory", "saved memory"
+                "my project", "stored memory", "saved memory", "what do you know about"
             ]
         )
 
@@ -102,32 +112,62 @@ class JarvisOrchestrator:
             "is_analytics_query": is_analytics_query
         }
 
-
     async def orchestrate(
         self,
         session_id: str,
         message: str,
         image_bytes: Optional[bytes] = None,
-        image_mime: Optional[str] = None
+        image_mime: Optional[str] = None,
+        speaker_status: str = "VERIFICATION_UNAVAILABLE"
     ) -> Dict[str, Any]:
         """
         Orchestrates request processing across underlying Severus capability services.
-        Returns a structured payload containing response text, session ID, optional action_required, and intent info.
+        Enforces Phase 11 speaker authorization for computer control & private owner memory.
+        Returns structured payload containing response text, session ID, action_required, and intent info.
         """
+        clean_msg = self.strip_wake_word(message)
         has_image = bool(image_bytes and image_mime)
-        intent_info = self.classify_intent(message, has_image=has_image)
-                # 2. Analytics & Visualization Routing
-        if intent_info["primary_intent"] == "analytics":
-            return {
-                "response": "📊 Analytics mode detected. Please upload a dataset to perform advanced analysis or visualization.",
-                "session_id": session_id,
-                "action_required": None,
-                "intent": "analytics",
-                "status_text": "Analytics Ready"
-            }
-        # 1. Desktop Action Intent Routing (Enforcing Confirmation & Allowlist Safety)
+        intent_info = self.classify_intent(clean_msg, has_image=has_image)
+
+        # ---------------------------------------------------------
+        # Security Policy 1: Private Owner Memory Access Protection
+        # ---------------------------------------------------------
+        if speaker_verification_service.is_private_owner_query(clean_msg):
+            if speaker_status != "AUTHORIZED_OWNER":
+                return {
+                    "response": "🔒 **Privacy Restriction**: Private owner information and stored personal memories can only be accessed by the verified owner.",
+                    "session_id": session_id,
+                    "action_required": None,
+                    "intent": "memory",
+                    "status_text": "Privacy Guard Active"
+                }
+
+        if speaker_verification_service.is_owner_self_query(clean_msg):
+            if speaker_status != "AUTHORIZED_OWNER":
+                return {
+                    "response": "🔒 **Privacy Restriction**: Stored personal memories can only be accessed by the verified owner.",
+                    "session_id": session_id,
+                    "action_required": None,
+                    "intent": "memory",
+                    "status_text": "Privacy Guard Active"
+                }
+
+        # ---------------------------------------------------------
+        # Security Policy 2: Desktop Action Intent / Computer Control
+        # ---------------------------------------------------------
         action_intent = intent_info.get("action_intent")
         if action_intent:
+            # Backend Authorization Gate
+            if speaker_status != "AUTHORIZED_OWNER":
+                return {
+                    "response": "⚠️ **Access Restricted**: Desktop computer control capabilities are restricted to the verified owner.",
+                    "session_id": session_id,
+                    "action_required": None,
+                    "intent": "computer_control",
+                    "status_text": "Unauthorized Speaker"
+                }
+
+            # Safety Check: Prohibited Action Patterns
             if action_intent.get("action_type") == "blocked":
                 reason = action_intent.get("reason", "Prohibited by safety policy.")
                 blocked_msg = f"⚠️ **Action Blocked**: {reason}"
@@ -150,21 +190,37 @@ class JarvisOrchestrator:
                     "status_text": "Awaiting Confirmation"
                 }
 
-        # 2. General / Vision / Web Search / Memory Capabilities Routing
+        # ---------------------------------------------------------
+        # Capabilities Routing: Analytics & Visualization
+        # ---------------------------------------------------------
+        if intent_info["primary_intent"] == "analytics":
+            return {
+                "response": "📊 Analytics mode detected. Please upload a dataset to perform advanced analysis or visualization.",
+                "session_id": session_id,
+                "action_required": None,
+                "intent": "analytics",
+                "status_text": "Analytics Ready"
+            }
+
+        # ---------------------------------------------------------
+        # Capabilities Routing: Standard Chat / AI Response
+        # ---------------------------------------------------------
         try:
             response_text = await ai_service.get_response(
                 session_id=session_id,
-                message=message,
+                message=clean_msg,
                 image_bytes=image_bytes,
                 image_mime=image_mime
             )
+
+            status_text = "Ready" if speaker_status == "AUTHORIZED_OWNER" else "Ready"
 
             return {
                 "response": response_text,
                 "session_id": session_id,
                 "action_required": None,
                 "intent": intent_info["primary_intent"],
-                "status_text": "Ready"
+                "status_text": status_text
             }
         except Exception as e:
             logger.error(f"Orchestration error during response generation: {str(e)}")

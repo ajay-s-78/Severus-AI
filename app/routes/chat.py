@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from langchain_core.messages import HumanMessage
 from app.services.ai_service import ai_service
 from app.services.csv_service import csv_service
@@ -12,21 +12,24 @@ from app.services.jarvis_orchestrator import jarvis_orchestrator
 from app.services.data_analysis_service import data_analysis_service
 from app.services.ml_service import ml_service
 from app.services.analytics_service import analytics_service
+from app.services.speaker_verification_service import speaker_verification_service
 
-router = APIRouter(prefix="/api", tags=["Chat"])
-
+router = APIRouter(prefix="/api", tags=["Chat & Security"])
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, description="User prompt or code query")
     session_id: Optional[str] = Field(default=None, description="Optional conversation session ID")
     image_data: Optional[str] = Field(default=None, description="Optional base64 image data URI string")
+    audio_data: Optional[str] = Field(default=None, description="Optional base64 audio string for speaker verification")
+    speaker_auth: Optional[str] = Field(default=None, description="Optional speaker authorization token or status")
 
 
 class ChatResponse(BaseModel):
     response: str
     session_id: str
     action_required: Optional[dict] = None
+    speaker_status: Optional[str] = Field(default="VERIFICATION_UNAVAILABLE", description="Speaker identity verification result")
 
 
 class ActionExecuteRequest(BaseModel):
@@ -34,6 +37,8 @@ class ActionExecuteRequest(BaseModel):
     target: str
     confirmed: bool = False
     session_id: Optional[str] = None
+    audio_data: Optional[str] = None
+    speaker_auth: Optional[str] = None
 
 
 class ActionExecuteResponse(BaseModel):
@@ -52,11 +57,20 @@ class ClearHistoryResponse(BaseModel):
     session_id: str
 
 
+class EnrollSpeakerRequest(BaseModel):
+    audio_samples: List[str] = Field(..., min_length=1, description="List of base64 voice audio samples for owner enrollment")
+
+
+class VerifySpeakerRequest(BaseModel):
+    audio_data: str = Field(..., description="Base64 audio string to verify against owner profile")
+
+
 @router.post("/chat", response_model=ChatResponse, status_code=status.HTTP_200_OK)
 async def chat_endpoint(request: ChatRequest):
     """
     Main chat endpoint for Severus Data Science AI Assistant.
-    Receives user prompt and optional image, checks for desktop action intents or processes via LangChain/AI service.
+    Receives user prompt, image, and optional voice audio for speaker verification.
+    Enforces Phase 11 owner security decisions on backend.
     """
     message = request.message.strip()
     if not message:
@@ -65,10 +79,10 @@ async def chat_endpoint(request: ChatRequest):
             detail="Message content cannot be empty."
         )
 
-    # Use provided session_id or create a new UUID for session
+    # Session ID management
     session_id = request.session_id if request.session_id else str(uuid.uuid4())
 
-    # Image Vision Data Validation
+    # Image Vision Data Parsing
     image_bytes = None
     image_mime = None
     if request.image_data:
@@ -79,17 +93,25 @@ async def chat_endpoint(request: ChatRequest):
                 detail=err_msg
             )
 
+    # Phase 11 Backend Speaker Identity Verification
+    speaker_status = speaker_verification_service.verify_request(
+        audio_data=request.audio_data,
+        speaker_auth=request.speaker_auth
+    )
+
     try:
         orch_res = await jarvis_orchestrator.orchestrate(
             session_id=session_id,
             message=message,
             image_bytes=image_bytes,
-            image_mime=image_mime
+            image_mime=image_mime,
+            speaker_status=speaker_status
         )
         return ChatResponse(
             response=orch_res["response"],
             session_id=orch_res["session_id"],
-            action_required=orch_res.get("action_required")
+            action_required=orch_res.get("action_required"),
+            speaker_status=speaker_status
         )
     except Exception as e:
         raise HTTPException(
@@ -102,7 +124,22 @@ async def chat_endpoint(request: ChatRequest):
 async def execute_action_endpoint(request: ActionExecuteRequest):
     """
     Executes a user-confirmed computer control desktop action.
+    Strictly verifies backend owner speaker authorization before executing desktop control.
     """
+    # Verify Backend Speaker Authorization
+    speaker_status = speaker_verification_service.verify_request(
+        audio_data=request.audio_data,
+        speaker_auth=request.speaker_auth
+    )
+
+    if speaker_status != "AUTHORIZED_OWNER":
+        return ActionExecuteResponse(
+            status="blocked",
+            message=f"Action Blocked: Desktop computer control execution is restricted to the verified owner. (Status: {speaker_status})",
+            action_type=request.action_type,
+            target=request.target
+        )
+
     result = computer_control_service.execute_action(
         action_type=request.action_type,
         target=request.target,
@@ -115,6 +152,50 @@ async def execute_action_endpoint(request: ActionExecuteRequest):
         target=result.get("target")
     )
 
+
+# ---------------------------------------------------------
+# Phase 11 Speaker Enrollment & Authorization Endpoints
+# ---------------------------------------------------------
+
+@router.post("/speaker/enroll", status_code=status.HTTP_200_OK)
+async def enroll_speaker_endpoint(request: EnrollSpeakerRequest):
+    """
+    Enrolls owner speaker profile from voice audio samples.
+    """
+    res = speaker_verification_service.enroll_speaker(request.audio_samples)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res.get("message"))
+    return res
+
+
+@router.get("/speaker/status", status_code=status.HTTP_200_OK)
+async def get_speaker_status_endpoint():
+    """
+    Retrieves current owner speaker profile status.
+    """
+    return speaker_verification_service.get_speaker_status()
+
+
+@router.delete("/speaker/enroll", status_code=status.HTTP_200_OK)
+async def clear_speaker_profile_endpoint():
+    """
+    Clears current owner speaker profile.
+    """
+    return speaker_verification_service.clear_speaker_profile()
+
+
+@router.post("/speaker/verify", status_code=status.HTTP_200_OK)
+async def verify_speaker_endpoint(request: VerifySpeakerRequest):
+    """
+    Verifies an audio sample against stored owner speaker profile.
+    """
+    status_result = speaker_verification_service.verify_speaker(audio_data=request.audio_data)
+    return {"speaker_status": status_result}
+
+
+# ---------------------------------------------------------
+# Session & Dataset Workspace Endpoints
+# ---------------------------------------------------------
 
 @router.post("/clear", response_model=ClearHistoryResponse, status_code=status.HTTP_200_OK)
 async def clear_history_endpoint(request: ClearHistoryRequest):
@@ -164,7 +245,6 @@ async def upload_dataset_endpoint(
 
     sid = session_id if session_id else str(uuid.uuid4())
     
-    # Inject dataset profile summary into conversation history & SQLite
     summary_msg = f"[System Context: User uploaded dataset '{file.filename}']\n" + analysis["summary_markdown"]
     history = ai_service.get_session_history(sid)
     history.append(HumanMessage(content=summary_msg))
@@ -243,7 +323,7 @@ async def ml_recommendation_endpoint(
     target_col: Optional[str] = Form(None)
 ):
     """
-    Analyzes dataset properties and recommends the optimal machine learning algorithm.
+    Analyzes dataset properties and recommends optimal machine learning algorithm.
     """
     file_bytes = await file.read()
     validation_err = data_analysis_service.validate_dataset(file_bytes, file.filename)
@@ -267,6 +347,8 @@ async def ml_recommendation_endpoint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to process dataset for recommendation: {str(e)}"
         )
+
+
 @router.post("/analytics/analyze")
 async def analytics_analyze_endpoint(
     file: UploadFile = File(...),
@@ -300,12 +382,13 @@ async def analytics_chart_endpoint(
 ):
     file_bytes = await file.read()
 
+    columns = [column for column in [x_column, y_column] if column]
+
     result = analytics_service.generate_chart_from_file(
         file_bytes=file_bytes,
         filename=file.filename,
         chart_type=chart_type,
-        x_column=x_column,
-        y_column=y_column,
+        columns=columns or None,
     )
 
     if "error" in result:
@@ -319,8 +402,3 @@ async def analytics_chart_endpoint(
         "filename": file.filename,
         "chart": result
     }
-
-
-
-
-
