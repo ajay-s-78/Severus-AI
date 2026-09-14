@@ -330,9 +330,147 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Web Speech API Voice Input Handling (Speech-to-Text)
+  // =========================================================================
+  // WEB SPEECH RECOGNITION & CONTINUOUS VOICE MODE (PHASE 12)
+  // =========================================================================
   const micBtn = document.getElementById('micBtn');
+  const continuousVoiceToggleBtn = document.getElementById('continuousVoiceToggleBtn');
+  const stopVoiceBtn = document.getElementById('stopVoiceBtn');
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  let isContinuousVoiceActive = false;
+  let isListening = false;
+  let recognition = null;
+  let voiceRestartTimer = null;
+
+  const wakeWordRegex = /^(hey\s+severus|severus)[\s,.]*/i;
+
+  function updateContinuousVoiceUI() {
+    if (!continuousVoiceToggleBtn) return;
+    if (isContinuousVoiceActive) {
+      continuousVoiceToggleBtn.classList.add('active');
+      continuousVoiceToggleBtn.innerHTML = '<i class="fa-solid fa-headset"></i> <span class="btn-text">Continuous Voice: On</span>';
+      if (stopVoiceBtn) stopVoiceBtn.classList.remove('hidden');
+    } else {
+      continuousVoiceToggleBtn.classList.remove('active');
+      continuousVoiceToggleBtn.innerHTML = '<i class="fa-solid fa-headset"></i> <span class="btn-text">Continuous Voice: Off</span>';
+      if (stopVoiceBtn) stopVoiceBtn.classList.add('hidden');
+    }
+  }
+
+  function stopAllSpeechAndVoice() {
+    if (voiceRestartTimer) {
+      clearTimeout(voiceRestartTimer);
+      voiceRestartTimer = null;
+    }
+    stopAllSpeech();
+    if (recognition && isListening) {
+      try {
+        recognition.abort();
+      } catch (e) {}
+    }
+    isListening = false;
+    isContinuousVoiceActive = false;
+    updateContinuousVoiceUI();
+    if (micBtn) {
+      micBtn.classList.remove('listening');
+      micBtn.title = 'Voice Input (Speech to Text & Verification)';
+    }
+    setJarvisStatus('ready');
+  }
+
+  if (stopVoiceBtn) {
+    stopVoiceBtn.addEventListener('click', stopAllSpeechAndVoice);
+  }
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      isListening = true;
+      setJarvisStatus('listening');
+      if (micBtn) {
+        micBtn.classList.add('listening');
+        micBtn.title = 'Listening... Click to stop voice input';
+      }
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript;
+      }
+      transcript = transcript.trim();
+      if (!transcript) return;
+
+      const hasWakeWord = wakeWordRegex.test(transcript);
+      let commandText = transcript;
+      if (hasWakeWord) {
+        commandText = transcript.replace(wakeWordRegex, '').trim();
+      }
+
+      if (hasWakeWord && !commandText) {
+        speakMessageText("Yes, Ajay? SEVERUS is listening.", null, () => {
+          if (isContinuousVoiceActive) {
+            restartListeningLoop(400);
+          }
+        });
+        return;
+      }
+
+      if (commandText) {
+        userInput.value = commandText;
+        userInput.dispatchEvent(new Event('input'));
+        setJarvisStatus('thinking');
+        sendMessage(true);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.warn('Speech recognition error:', event.error);
+      isListening = false;
+      if (micBtn) micBtn.classList.remove('listening');
+
+      if (event.error === 'not-allowed') {
+        alert('Microphone permission was denied. Please allow microphone access in your browser settings.');
+        isContinuousVoiceActive = false;
+        updateContinuousVoiceUI();
+        setJarvisStatus('ready');
+      } else if (event.error !== 'aborted') {
+        setJarvisStatus('error');
+        if (isContinuousVoiceActive) {
+          restartListeningLoop(1500);
+        } else {
+          setJarvisStatus('ready');
+        }
+      }
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      if (micBtn) micBtn.classList.remove('listening');
+      if (isContinuousVoiceActive && !window.speechSynthesis?.speaking && !isListening) {
+        restartListeningLoop(600);
+      }
+    };
+  }
+
+  function restartListeningLoop(delayMs = 600) {
+    if (!isContinuousVoiceActive || !recognition) return;
+    if (voiceRestartTimer) clearTimeout(voiceRestartTimer);
+    voiceRestartTimer = setTimeout(() => {
+      if (isContinuousVoiceActive && !isListening && (!window.speechSynthesis || !window.speechSynthesis.speaking)) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.warn('Failed to restart recognition:', e);
+        }
+      }
+    }, delayMs);
+  }
 
   if (micBtn) {
     if (!SpeechRecognition) {
@@ -341,19 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Safari.');
       });
     } else {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      let isListening = false;
-      let existingText = '';
-
       micBtn.addEventListener('click', () => {
         if (isListening) {
-          recognition.stop();
+          stopAllSpeechAndVoice();
         } else {
-          existingText = userInput.value;
+          stopAllSpeech();
           try {
             recognition.start();
           } catch (e) {
@@ -361,41 +491,24 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       });
+    }
+  }
 
-      recognition.onstart = () => {
-        isListening = true;
-        micBtn.classList.add('listening');
-        micBtn.title = 'Listening... Click to stop voice input';
-      };
-
-      recognition.onresult = (event) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
+  if (continuousVoiceToggleBtn) {
+    if (!SpeechRecognition) {
+      continuousVoiceToggleBtn.title = 'Continuous Voice is not supported in this browser';
+      continuousVoiceToggleBtn.disabled = true;
+    } else {
+      continuousVoiceToggleBtn.addEventListener('click', () => {
+        isContinuousVoiceActive = !isContinuousVoiceActive;
+        updateContinuousVoiceUI();
+        if (isContinuousVoiceActive) {
+          stopAllSpeech();
+          restartListeningLoop(200);
+        } else {
+          stopAllSpeechAndVoice();
         }
-
-        const prefix = existingText ? (existingText.trim() + ' ') : '';
-        userInput.value = prefix + transcript;
-        userInput.dispatchEvent(new Event('input'));
-      };
-
-      recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          alert('Microphone permission was denied. Please allow microphone access in your browser settings.');
-        }
-        stopListeningState();
-      };
-
-      recognition.onend = () => {
-        stopListeningState();
-      };
-
-      function stopListeningState() {
-        isListening = false;
-        micBtn.classList.remove('listening');
-        micBtn.title = 'Voice Input (Speech to Text)';
-      }
+      });
     }
   }
 
@@ -450,9 +563,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function speakMessageText(text, btnElement) {
+  function speakMessageText(text, btnElement, onEndCallback = null) {
     if (!speechSynthesisSupported) {
-      alert('Speech synthesis is not supported in this browser.');
+      if (onEndCallback) onEndCallback();
       return;
     }
 
@@ -460,12 +573,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnElement && currentSpeakingBtn === btnElement && (synth.speaking || synth.pending)) {
       stopAllSpeech();
+      if (onEndCallback) onEndCallback();
       return;
     }
 
     stopAllSpeech();
 
-    if (!text || !text.trim()) return;
+    if (!text || !text.trim()) {
+      if (onEndCallback) onEndCallback();
+      return;
+    }
 
     const cleanText = text
       .replace(/```[\s\S]*?```/g, ' Code snippet omitted. ')
@@ -473,7 +590,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/[*#_~]/g, '')
       .trim();
 
-    if (!cleanText) return;
+    if (!cleanText) {
+      if (onEndCallback) onEndCallback();
+      return;
+    }
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = 1.0;
@@ -498,6 +618,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (currentSpeakingBtn === btnElement) {
         currentSpeakingBtn = null;
       }
+      if (onEndCallback) onEndCallback();
+      if (isContinuousVoiceActive) {
+        restartListeningLoop(600);
+      }
     };
 
     utterance.onerror = (e) => {
@@ -508,6 +632,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (currentSpeakingBtn === btnElement) {
         currentSpeakingBtn = null;
+      }
+      if (onEndCallback) onEndCallback();
+      if (isContinuousVoiceActive) {
+        restartListeningLoop(600);
       }
     };
 
@@ -546,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
     messagesWrapper.classList.remove('hidden');
   }
 
-  async function sendMessage() {
+  async function sendMessage(isVoiceCommand = false) {
     const text = userInput.value.trim();
     const sendingImageData = currentImageData;
 
@@ -623,9 +751,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (res.ok && data.response) {
         appendAIMessage(data.response, data.action_required);
+        if (isVoiceCommand || isContinuousVoiceActive || autoVoiceEnabled) {
+          speakMessageText(data.response, null);
+        }
       } else {
         const errorMsg = data.detail || 'An unexpected error occurred while communicating with Severus.';
         appendAIMessage(`⚠️ **Error**: ${errorMsg}`);
+        if (isVoiceCommand || isContinuousVoiceActive || autoVoiceEnabled) {
+          speakMessageText(`System error: ${errorMsg}`, null);
+        }
       }
     } catch (err) {
       showTyping(false);
