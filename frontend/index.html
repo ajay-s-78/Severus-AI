@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SEVERUS — Data Science AI Assistant</title>
+  <title>SEVERUS — Personal AI Assistant & Command Center</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Marked Markdown Parser -->
@@ -29,7 +29,7 @@
           </div>
           <div class="brand-info">
             <h1>SEVERUS</h1>
-            <span>Data Science AI Assistant</span>
+            <span>Personal AI Command Center</span>
           </div>
         </div>
         <button class="btn-toggle-sidebar" id="collapseSidebarBtn" title="Collapse Sidebar">
@@ -39,7 +39,7 @@
 
       <!-- New Chat Button -->
       <button class="btn-new-chat" id="newChatBtn">
-        <i class="fa-solid fa-plus"></i> New Chat
+        <i class="fa-solid fa-plus"></i> New Conversation
       </button>
 
       <!-- Recent Chats Section -->
@@ -59,7 +59,7 @@
       <div class="sidebar-footer">
         <div class="system-status" id="jarvisStatusContainer">
           <div class="status-row">
-            <span class="status-dot" id="jarvisStatusDot"></span> <span id="jarvisStatusText">SEVERUS: Ready</span>
+            <span class="status-dot ready" id="jarvisStatusDot"></span> <span id="jarvisStatusText">SEVERUS: ONLINE</span>
           </div>
           <div class="status-row voice-status-row" id="voiceStatusRow">
             <i class="fa-solid fa-shield-halved" id="voiceStatusIcon"></i> <span id="voiceStatusText">Voice: Chat Only</span>
@@ -76,7 +76,7 @@
           <button class="btn-bar-toggle" id="expandSidebarBtn" title="Expand Sidebar">
             <i class="fa-solid fa-bars"></i>
           </button>
-          <span class="bar-title" id="barChatTitle">SEVERUS</span>
+          <span class="bar-title" id="barChatTitle">SEVERUS ASSISTANT</span>
         </div>
         <div class="bar-right">
           <button class="btn-header-action" id="voiceEnrollBtn" title="Owner Speaker Authorization">
@@ -102,15 +102,70 @@
 
       <!-- Chat Viewport -->
       <div class="chat-viewport">
-        <!-- Welcome Screen (Centered - shown when chat is empty) -->
+        <!-- Welcome Screen (Futuristic JARVIS Command Center) -->
         <div class="welcome-container" id="welcomeScreen">
-          <div class="welcome-hero">
-            <div class="hero-avatar">
-              <i class="fa-solid fa-brain"></i>
+          
+          <!-- FUTURISTIC JARVIS SEVERUS AI CORE -->
+          <div class="jarvis-core-container state-online" id="jarvisCoreContainer">
+            <div class="jarvis-core-hud" id="jarvisCoreHud">
+              <svg class="jarvis-svg" viewBox="0 0 300 300">
+                <defs>
+                  <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.8" />
+                    <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.3" />
+                    <stop offset="100%" stop-color="#080c14" stop-opacity="0" />
+                  </radialGradient>
+                  <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#06b6d4" />
+                    <stop offset="50%" stop-color="#3b82f6" />
+                    <stop offset="100%" stop-color="#8b5cf6" />
+                  </linearGradient>
+                </defs>
+
+                <!-- Background Core Glow -->
+                <circle cx="150" cy="150" r="130" fill="url(#coreGlow)" opacity="0.4" />
+
+                <!-- Outer Segmented Rotating Ring 1 -->
+                <circle class="hud-ring outer-ring" cx="150" cy="150" r="135" stroke="url(#ringGradient)" stroke-width="1.5" fill="none" stroke-dasharray="12 6 4 6 24 6" />
+
+                <!-- Rotating Ring 2 -->
+                <circle class="hud-ring middle-ring" cx="150" cy="150" r="115" stroke="#06b6d4" stroke-width="2" fill="none" stroke-dasharray="40 20 80 20" opacity="0.8" />
+
+                <!-- Inner Counter-Rotating Ring 3 -->
+                <circle class="hud-ring inner-ring" cx="150" cy="150" r="95" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-dasharray="8 8 24 8" opacity="0.9" />
+
+                <!-- Pulsing Core Ring -->
+                <circle class="hud-ring pulse-ring" cx="150" cy="150" r="75" stroke="#22d3ee" stroke-width="2" fill="none" opacity="0.6" />
+
+                <!-- Audio Waveform Arcs -->
+                <g class="audio-waves" id="audioWaves">
+                  <circle cx="150" cy="150" r="60" stroke="#06b6d4" stroke-width="2" fill="none" stroke-dasharray="2 6" opacity="0.7" />
+                  <circle cx="150" cy="150" r="50" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-dasharray="4 4" opacity="0.5" />
+                </g>
+              </svg>
+
+              <!-- Central Identity Badge & Dynamic State Text -->
+              <div class="jarvis-core-center">
+                <div class="core-logo-icon">
+                  <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="core-title">SEVERUS</div>
+                <div class="core-status" id="jarvisCoreStateText">ONLINE</div>
+              </div>
             </div>
-            <h1 class="welcome-title">SEVERUS</h1>
-            <p class="welcome-subtitle">Your Personal AI Assistant & Data Science Workspace</p>
-            <h2 class="welcome-heading">How can I help you today?</h2>
+
+            <!-- Telemetry HUD Bar -->
+            <div class="jarvis-telemetry">
+              <span class="telemetry-item"><i class="fa-solid fa-microchip"></i> SYSTEM: ONLINE</span>
+              <span class="telemetry-item"><i class="fa-solid fa-shield-halved"></i> VOICE: SPEAKER SECURITY</span>
+              <span class="telemetry-item"><i class="fa-solid fa-network-wired"></i> ENGINE: GEMINI + LANGCHAIN</span>
+            </div>
+          </div>
+
+          <div class="welcome-hero">
+            <h1 class="welcome-title">SEVERUS AI ASSISTANT</h1>
+            <p class="welcome-subtitle">Personal AI Command Center & Data Science Workspace</p>
+            <h2 class="welcome-heading">How may I assist you today?</h2>
           </div>
 
           <!-- Quick-Start Cards Grid (8 Cards) -->
@@ -327,7 +382,7 @@
       <div class="modal-header">
         <h3>
           <i class="fa-solid fa-chart-line"></i>
-          Advanced Analytics & Visualization
+          Advanced Analytics & Visualization Workspace
         </h3>
         <button class="modal-close-btn" id="closeAnalyticsModalBtn" title="Close">
           <i class="fa-solid fa-xmark"></i>
@@ -398,7 +453,7 @@
         <div class="analytics-chart-section hidden" id="analyticsChartSection">
           <h4>
             <i class="fa-solid fa-chart-simple"></i>
-            Visualization
+            Visualization Generator
           </h4>
 
           <div class="analytics-chart-controls">

@@ -28,9 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const jarvisStatusDot = document.getElementById('jarvisStatusDot');
   const jarvisStatusText = document.getElementById('jarvisStatusText');
 
-  // Voice Status Indicator Elements
-  const voiceStatusRow = document.getElementById('voiceStatusRow');
-  const voiceStatusText = document.getElementById('voiceStatusText');
+  // JARVIS Core Elements
+  const jarvisCoreContainer = document.getElementById('jarvisCoreContainer');
+  const jarvisCoreStateText = document.getElementById('jarvisCoreStateText');
 
   function setVoiceStatus(status) {
     if (!voiceStatusRow || !voiceStatusText) return;
@@ -45,35 +45,54 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setJarvisStatus(state, customLabel = null) {
-    if (!jarvisStatusText || !jarvisStatusDot) return;
-    jarvisStatusDot.className = 'status-dot';
+    if (jarvisStatusDot) jarvisStatusDot.className = 'status-dot';
+    if (jarvisCoreContainer) jarvisCoreContainer.className = 'jarvis-core-container';
+
+    let stateLabel = 'ONLINE';
+    let dotClass = 'ready';
+    let containerClass = 'state-online';
 
     switch (state) {
+      case 'listening':
+        stateLabel = 'LISTENING';
+        dotClass = 'listening';
+        containerClass = 'state-listening';
+        break;
       case 'thinking':
-        jarvisStatusDot.classList.add('thinking');
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Thinking...';
-        break;
       case 'searching':
-        jarvisStatusDot.classList.add('searching');
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Searching Web...';
-        break;
       case 'vision':
-        jarvisStatusDot.classList.add('vision');
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Analyzing Image...';
-        break;
-      case 'awaiting':
-        jarvisStatusDot.classList.add('awaiting');
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Awaiting Confirmation...';
+      case 'processing':
+        stateLabel = 'PROCESSING';
+        dotClass = 'thinking';
+        containerClass = 'state-processing';
         break;
       case 'speaking':
-        jarvisStatusDot.classList.add('speaking');
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Speaking...';
+        stateLabel = 'SPEAKING';
+        dotClass = 'speaking';
+        containerClass = 'state-speaking';
+        break;
+      case 'awaiting':
+        stateLabel = 'AWAITING CONFIRMATION';
+        dotClass = 'awaiting';
+        containerClass = 'state-awaiting';
+        break;
+      case 'error':
+        stateLabel = 'SYSTEM ERROR';
+        dotClass = 'error';
+        containerClass = 'state-error';
         break;
       case 'ready':
       default:
-        jarvisStatusText.textContent = customLabel || 'SEVERUS: Ready';
+        stateLabel = 'ONLINE';
+        dotClass = 'ready';
+        containerClass = 'state-online';
         break;
     }
+
+    if (jarvisStatusDot) jarvisStatusDot.classList.add(dotClass);
+    if (jarvisStatusText) jarvisStatusText.textContent = customLabel || `SEVERUS: ${stateLabel}`;
+    if (jarvisCoreContainer) jarvisCoreContainer.classList.add(containerClass);
+    if (jarvisCoreStateText) jarvisCoreStateText.textContent = stateLabel;
   }
 
   // Configure marked markdown options

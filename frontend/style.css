@@ -1507,4 +1507,202 @@ textarea {
   margin: 4px 0 8px 0;
 }
 
+/* ==========================================================================
+   FUTURISTIC JARVIS SEVERUS AI CORE & HUD STYLES
+   ========================================================================== */
+
+.jarvis-core-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.jarvis-core-hud {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jarvis-svg {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+}
+
+/* HUD Ring Animations */
+.hud-ring.outer-ring {
+  transform-origin: center;
+  animation: spinClockwise 25s linear infinite;
+}
+
+.hud-ring.middle-ring {
+  transform-origin: center;
+  animation: spinCounterClockwise 15s linear infinite;
+}
+
+.hud-ring.inner-ring {
+  transform-origin: center;
+  animation: spinClockwise 35s linear infinite;
+}
+
+.hud-ring.pulse-ring {
+  transform-origin: center;
+  animation: pulseRing 3s ease-in-out infinite;
+}
+
+@keyframes spinClockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinCounterClockwise {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes pulseRing {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.04); opacity: 0.85; }
+}
+
+/* JARVIS Core Dynamic States */
+.jarvis-core-center {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.core-logo-icon {
+  font-size: 2rem;
+  color: #22d3ee;
+  filter: drop-shadow(0 0 12px rgba(6, 182, 212, 0.8));
+  transition: all 0.3s ease;
+}
+
+.core-title {
+  font-family: 'Orbitron', 'Inter', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #ffffff;
+  margin-top: 4px;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+}
+
+.core-status {
+  font-family: 'Orbitron', 'Inter', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #22d3ee;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* State Modifications */
+.jarvis-core-container.state-listening .hud-ring.pulse-ring {
+  animation: pulseRing 1s ease-in-out infinite;
+  stroke: #10b981;
+}
+
+.jarvis-core-container.state-listening .core-logo-icon {
+  color: #10b981;
+  filter: drop-shadow(0 0 16px #10b981);
+}
+
+.jarvis-core-container.state-listening .core-status {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.jarvis-core-container.state-processing .hud-ring.middle-ring {
+  animation: spinCounterClockwise 5s linear infinite;
+  stroke: #a855f7;
+}
+
+.jarvis-core-container.state-processing .core-logo-icon {
+  color: #a855f7;
+  filter: drop-shadow(0 0 16px #a855f7);
+}
+
+.jarvis-core-container.state-processing .core-status {
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.jarvis-core-container.state-speaking .audio-waves {
+  animation: wavePulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes wavePulse {
+  0% { opacity: 0.4; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1.06); }
+}
+
+.jarvis-core-container.state-error .core-logo-icon {
+  color: #ef4444;
+  filter: drop-shadow(0 0 16px #ef4444);
+}
+
+.jarvis-core-container.state-error .core-status {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Telemetry HUD Bar */
+.jarvis-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 6px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.telemetry-item {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.5px;
+}
+
+.telemetry-item i {
+  color: #22d3ee;
+}
+
+/* Prefers Reduced Motion Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .hud-ring.outer-ring,
+  .hud-ring.middle-ring,
+  .hud-ring.inner-ring,
+  .hud-ring.pulse-ring,
+  .audio-waves {
+    animation: none !important;
+  }
+}
+
 

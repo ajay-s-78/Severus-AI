@@ -384,21 +384,36 @@ async def analytics_chart_endpoint(
 
     columns = [column for column in [x_column, y_column] if column]
 
-    result = analytics_service.generate_chart_from_file(
-        file_bytes=file_bytes,
-        filename=file.filename,
-        chart_type=chart_type,
-        columns=columns or None,
-    )
-
-    if "error" in result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result["error"]
+    try:
+        chart_res = analytics_service.generate_chart_from_file(
+            file_bytes=file_bytes,
+            filename=file.filename,
+            chart_type=chart_type,
+            columns=columns or None,
         )
 
-    return {
-        "status": "success",
-        "filename": file.filename,
-        "chart": result
-    }
+        if isinstance(chart_res, tuple) and len(chart_res) == 2:
+            img_bytes, title = chart_res
+            import base64
+            b64_img = base64.b64encode(img_bytes).decode("utf-8")
+            chart_data = {"image_base64": b64_img, "title": title}
+        elif isinstance(chart_res, dict) and "error" in chart_res:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=chart_res["error"]
+            )
+        else:
+            chart_data = chart_res
+
+        return {
+            "status": "success",
+            "filename": file.filename,
+            "chart": chart_data
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Chart generation failed: {str(e)}"
+        )
