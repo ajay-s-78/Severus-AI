@@ -7,6 +7,7 @@ from app.services.computer_control_service import computer_control_service
 from app.services.memory_service import memory_service
 from app.services.analytics_service import analytics_service
 from app.services.speaker_verification_service import speaker_verification_service
+from app.services.agents import agent_system
 
 logger = logging.getLogger("severus.jarvis_orchestrator")
 
